@@ -130,6 +130,19 @@ a CSS issue, etc. Prefer this over asking the user to manually check.
   aesthetics, typography — automatically invoke the
   `/frontend-design:frontend-design` skill rather than designing ad hoc.
 
+## GitHub account
+
+Always use the **`krishkshir`** GitHub account (the repo owner/admin) for
+any GitHub action against this repo — `git push`, `gh pr create`, `gh pr
+comment`, etc. The `gh` CLI's default active account may be a different,
+lower-privilege account (e.g. one with only read access), which fails
+non-obviously: `gh pr create` errors with "must be a collaborator" rather
+than an auth error. Before any `gh` write action, check the active account
+with `gh auth status` and, if it isn't `krishkshir`, switch with `gh auth
+switch --user krishkshir` first. Switch back to whatever was active
+afterward, so this doesn't leave a lasting change to the user's `gh` CLI
+config beyond the current task.
+
 ## Non-goals
 
 Not a payment processor, not bookkeeping/accounting software, not tax or
