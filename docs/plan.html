@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan — msk_ppal_calc</title>
+<style>
+  :root {
+    --ink: #12203A;
+    --paper: #FBFAF7;
+    --paper-dim: #F3F1EA;
+    --rule: #DAD5C7;
+    --red: #A6432B;
+    --teal: #1F6F5C;
+    --brass: #C9A227;
+    --muted: #5B6472;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 840px; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
+  header.page-head {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 2rem;
+    margin-bottom: 3rem;
+  }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 0.75rem;
+  }
+  h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 600;
+    font-size: clamp(2rem, 5vw, 2.75rem);
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.01em;
+  }
+  .subtitle { color: var(--muted); font-size: 1.05rem; margin: 0; }
+  h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.5rem;
+    margin: 3rem 0 1rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+  }
+  h2:first-of-type { border-top: none; padding-top: 0; }
+  h3 {
+    font-size: 1.05rem;
+    margin: 2rem 0 0.75rem;
+    color: var(--ink);
+  }
+  p { margin: 0 0 1rem; }
+  blockquote {
+    margin: 1.5rem 0;
+    padding: 1rem 1.25rem;
+    background: var(--paper-dim);
+    border-left: 3px solid var(--brass);
+    font-style: italic;
+    color: var(--ink);
+  }
+  blockquote p:last-child { margin-bottom: 0; }
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    background: var(--paper-dim);
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+  pre {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 1.25rem 1.5rem;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.7;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.25rem 0;
+    font-size: 0.95rem;
+  }
+  caption { caption-side: bottom; }
+  th, td {
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  td:nth-child(2), td.num {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    white-space: nowrap;
+  }
+  .callout {
+    margin: 1.5rem 0;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--red);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--red) 6%, var(--paper));
+  }
+  .callout .label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--red);
+    margin: 0 0 0.5rem;
+    font-weight: 600;
+  }
+  .open-questions {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .open-questions li {
+    padding: 0.9rem 0 0.9rem 2.25rem;
+    position: relative;
+    border-bottom: 1px solid var(--rule);
+  }
+  .open-questions li:last-child { border-bottom: none; }
+  .open-questions li::before {
+    content: "?";
+    position: absolute;
+    left: 0;
+    top: 0.85rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    border: 1.5px solid var(--brass);
+    color: var(--brass);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .open-questions strong { color: var(--ink); }
+  .files-table td:first-child, .files-table th:first-child {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.85rem;
+    color: var(--teal);
+  }
+  ul.roadmap { list-style: none; margin: 0; padding: 0; }
+  ul.roadmap li {
+    display: flex;
+    gap: 1rem;
+    padding: 0.6rem 0;
+    align-items: baseline;
+  }
+  ul.roadmap .ver {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-weight: 600;
+    color: var(--teal);
+    min-width: 4.5rem;
+  }
+  .tokens { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1rem 0 1.5rem; }
+  .swatch {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.8rem;
+    background: var(--paper-dim);
+    padding: 0.4rem 0.7rem;
+    border-radius: 4px;
+  }
+  .swatch .dot {
+    width: 0.9rem;
+    height: 0.9rem;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.15);
+  }
+  ol.exec { padding-left: 1.25rem; }
+  ol.exec li { margin-bottom: 0.6rem; }
+  a { color: var(--teal); }
+  footer.sources {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  footer.sources ul { padding-left: 1.25rem; }
+  .status-pill {
+    display: inline-block;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--teal);
+    border: 1px solid var(--teal);
+    border-radius: 999px;
+    padding: 0.2rem 0.7rem;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page-head">
+    <p class="eyebrow">Plan · msk_ppal_calc</p>
+    <h1>Draft CONSTITUTION.md for msk_ppal_calc</h1>
+    <p class="subtitle">Approved plan — recorded for reference during and after implementation.</p>
+    <p style="margin-top:1rem"><span class="status-pill">Approved</span></p>
+  </header>
+
+  <section>
+    <h2>Context</h2>
+    <p>
+      <code>msk_ppal_calc</code> is a greenfield repo (one untracked <code>README.md</code>, zero commits)
+      with a git remote at <code>krishkshir/msk_ppal_calc</code>. The README captures the originating
+      complaint verbatim:
+    </p>
+    <blockquote>
+      <p>A new client from Canada finds it confusing cos it doesn't show him the transaction fee
+      calculation but deducted it from me.</p>
+    </blockquote>
+    <p>Two distinct problems sit inside that sentence:</p>
+    <ol>
+      <li><strong>Ms. K under-invoices.</strong> She quotes a number, PayPal deducts fees she can't
+      predict, and she nets less than intended.</li>
+      <li><strong>The client can't see the math.</strong> PayPal shows the payer nothing about
+      seller-side deductions, so the shortfall looks arbitrary — or worse, looks like Ms. K padded
+      the bill.</li>
+    </ol>
+    <p>
+      The deliverable is <code>CONSTITUTION.md</code>: the project's mission, domain model, tech
+      stack, and roadmap. The research below is the substance of that document — the fee mechanics
+      are non-obvious and are the actual reason this project is hard.
+    </p>
+    <p>
+      <strong>Confirmed with the user:</strong> calculator only (no PayPal API integration), output
+      serves both Ms. K and her clients, Next.js + TypeScript on Vercel, and the receiving account is
+      <strong>UAE-registered, USD-denominated</strong>.
+    </p>
+  </section>
+
+  <section>
+    <h2>The finding that drives the whole design</h2>
+    <p>The UAE account location is not a detail — it's the core constraint.</p>
+    <p>
+      From PayPal's own UAE merchant fee schedule (last updated 2026-05-28), a UAE seller receiving
+      payment pays:
+    </p>
+    <table>
+      <thead>
+        <tr><th>Component</th><th>Rate</th><th>When it applies</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Commercial transaction — domestic</td><td class="num">3.40% + fixed</td><td>Buyer is in the UAE</td></tr>
+        <tr><td>Commercial transaction — EEA &amp; UK</td><td class="num">4.69% + fixed</td><td>Buyer in EEA/UK</td></tr>
+        <tr><td>Commercial transaction — all other markets</td><td class="num">by volume, see below</td><td>Buyer anywhere else (US, Canada, …)</td></tr>
+        <tr><td>Currency conversion spread</td><td class="num"><strong>4.0%</strong> above base rate</td><td>Payment currency ≠ account currency (MEA region)</td></tr>
+        <tr><td>Conversion spread — balance transfer</td><td class="num">3.0% above base rate</td><td>Withdrawals / transfers</td></tr>
+      </tbody>
+    </table>
+    <p>
+      The "all other markets" rate is itself tiered by trailing monthly sales volume — confirmed
+      against the calculator Ms. K currently uses. The lowest tier (Ms. K's actual tier) has since
+      been corrected against real transaction data; the other three remain unvalidated
+      designhill-sourced figures and should be treated as suspect until observed:
+    </p>
+    <table>
+      <thead>
+        <tr><th>Monthly volume</th><th>Published rate</th><th>Observed rate</th><th>Fixed fee</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>$0 – $3,000 <em>(Ms. K's tier)</em></td><td class="num"><s>4.40%</s></td><td class="num"><strong>4.625%</strong> (4.60–4.65%)</td><td class="num">$0.30 <em>(confirmed)</em></td></tr>
+        <tr><td>$3,000.01 – $10,000</td><td class="num">3.90%</td><td class="num">unvalidated</td><td class="num">$0.30</td></tr>
+        <tr><td>$10,000.01 – $100,000</td><td class="num">3.70%</td><td class="num">unvalidated</td><td class="num">$0.30</td></tr>
+        <tr><td>above $100,000</td><td class="num">3.40%</td><td class="num">unvalidated</td><td class="num">$0.30</td></tr>
+      </tbody>
+    </table>
+    <p>
+      See "Observed transactions (ground truth)" below for how 4.625% and the confirmed $0.30 were
+      derived, and why the published 4.40% figure is retained rather than deleted.
+    </p>
+
+    <h3>Reconciling with Ms. K's current tool</h3>
+    <p>
+      Ms. K currently quotes her US-based clients using
+      <a href="https://www.designhill.com/tools/paypal-fee-calculator">designhill.com's PayPal fee
+      calculator</a>. Its page copy is thin, so its actual JavaScript source was read directly rather
+      than trusted at face value:
+    </p>
+    <pre>var paypalPercentage = 3.4;
+var paypalAddition = 0.30;
+function setPapPalCommissionToolsPg(){
+    var amt = parseFloat($("#amt").val());
+    paypalPercentage = 4.4;
+    if (amt &gt;= 3000.01 &amp;&amp; amt &lt;= 10000)   paypalPercentage = 3.9;
+    if (amt &gt;= 10000.01 &amp;&amp; amt &lt;= 100000) paypalPercentage = 3.7;
+    if (amt &gt; 100000) paypalPercentage = 3.4;
+}</pre>
+    <p>
+      This confirms the volume-tier table above — the fixed fee (<code>$0.30</code>) matches PayPal's
+      own UAE fixed fee exactly, a real reconciliation point, not a coincidence. But the tool has two
+      bugs this project deliberately does not inherit:
+    </p>
+    <div class="callout">
+      <p class="label">Bug 1 — wrong tiering basis</p>
+      <p>
+        The tier is chosen by <code>amt</code>, the number typed into the tool's single input field —
+        i.e. by the size of <em>this one transaction</em>, not by trailing monthly sales volume, even
+        though the page's own copy describes it as a volume discount. A $15,000 invoice gets 3.7%; ten
+        $1,500 invoices to the same client all get 4.4%. That isn't how PayPal's real volume discounts
+        work.
+      </p>
+    </div>
+    <div class="callout">
+      <p class="label">Bug 2 — no currency modeling</p>
+      <p>
+        One numeric field, implicitly USD. No country selector, no currency selector, no FX conversion
+        anywhere in the code. Its "amount to ask for" reverse calculation is also not a clean
+        closed-form inverse — it's a hand-rolled expansion that approximates it rather than solving it
+        exactly. If this is the tool Ms. K used to quote the Canadian client, it silently drops the
+        ~4% currency-conversion spread entirely — very plausibly the actual mechanism behind the
+        original complaint, not PayPal's rules being confusing in the abstract.
+      </p>
+    </div>
+
+    <h3>Observed transactions (ground truth)</h3>
+    <p>
+      Three real, completed transactions are the project's first ground truth. All three are
+      <strong>USD→USD, US-based clients</strong> — no currency conversion involved, so they isolate
+      the commercial transaction fee from the 4% FX spread completely. This table is the validation
+      set; append future observations here rather than starting a new one.
+    </p>
+    <table>
+      <thead>
+        <tr><th>#</th><th>Client paid</th><th>Ms. K received</th><th>Implied fee</th><th>Effective rate</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>T1</td><td class="num">83.00 USD</td><td class="num">78.85 USD</td><td class="num">4.15 USD</td><td class="num">5.000%</td></tr>
+        <tr><td>T2</td><td class="num">101.20 USD</td><td class="num">96.21 USD</td><td class="num">4.99 USD</td><td class="num">4.931%</td></tr>
+        <tr><td>T3</td><td class="num">120.00 USD</td><td class="num">114.14 USD</td><td class="num">5.86 USD</td><td class="num">4.883%</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Effective rate falls as the amount rises — the signature of a genuine fixed fee, confirming
+      <code>rate + fixed</code> is the right model shape.
+    </p>
+    <p>
+      <strong>Out-of-sample validation:</strong> T1 and T2 alone solve to <code>r = 4.615%,
+      f = $0.319</code>. That model, fitted without ever seeing T3, predicts T3's fee as 5.858 →
+      <strong>5.86</strong>. Actual: <strong>5.86</strong>. A correct prediction on an unseen
+      transaction is strong evidence the linear model is genuinely right, not curve-fitted.
+    </p>
+    <p>
+      <strong>Refit across all three</strong> (least squares): <code>r = 4.622%, f = $0.313</code>.
+      The cleanest exact model, reproducing all three actual fees after cent-rounding, is
+      <strong>4.625% + $0.31</strong>:
+    </p>
+    <table>
+      <thead>
+        <tr><th>Model</th><th>T1</th><th>T2</th><th>T3</th><th>Verdict</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>4.40% + $0.30 <em>(previously documented)</em></td><td class="num">3.95 ✗</td><td class="num">4.75 ✗</td><td class="num">5.58 ✗</td><td>refuted</td></tr>
+        <tr><td>4.40% + $0.49</td><td class="num">4.14 ~</td><td class="num">4.94 ✗</td><td class="num">5.77 ✗</td><td>refuted</td></tr>
+        <tr><td>4.40% + $0.50</td><td class="num">4.15 ✓</td><td class="num">4.95 ✗</td><td class="num">5.78 ✗</td><td>refuted</td></tr>
+        <tr><td>5.00% flat</td><td class="num">4.15 ✓</td><td class="num">5.06 ✗</td><td class="num">6.00 ✗</td><td>refuted</td></tr>
+        <tr><td><strong>4.625% + $0.31</strong></td><td class="num"><strong>4.15 ✓</strong></td><td class="num"><strong>4.99 ✓</strong></td><td class="num"><strong>5.86 ✓</strong></td><td><strong>fits all three</strong></td></tr>
+      </tbody>
+    </table>
+    <p>
+      Propagating ±half-cent rounding through the three-point solve gives feasible bands of
+      <strong>rate 4.60–4.65%</strong> and <strong>fixed $0.29–$0.34</strong>. PayPal's published
+      <strong>$0.30 fixed fee sits inside its band and is confirmed.</strong> The previously
+      documented <strong>4.40% rate falls well outside its band and is refuted</strong> — the first
+      single observation (T1 alone) had suggested the fixed fee was the problem; with three points
+      it's clear the opposite is true. That reversal is left in this document deliberately, as a
+      record of why single-observation inference was resisted and why these tables stay provisional
+      until confirmed.
+    </p>
+    <p>
+      <strong>Unexplained residual:</strong> the observed ~4.62% sits about 0.22 percentage points
+      above PayPal's published "all other markets" rate of 4.40%, and is now too <em>low</em> to be
+      explained by the 4.69% EEA/UK rate (both clients are US-based regardless). Something adds
+      roughly a fifth of a percent that PayPal's UAE fee page doesn't document. Recorded as an open
+      anomaly, not a conclusion — see open questions below.
+    </p>
+    <p>
+      <strong>Precision limit:</strong> these three transactions span only $37, which amplifies
+      rounding noise into the ±0.025pp band above. One transaction at a substantially larger amount
+      (~$500+) would tighten the rate band by roughly an order of magnitude.
+    </p>
+
+    <h3>Why Ms. K keeps coming up short</h3>
+    <p>
+      Because Ms. K is in the UAE and essentially every consulting client is abroad, the domestic
+      3.40% rate almost never applies. The realistic default case for a new client is the observed
+      rate plus the conversion spread stacked on top:
+    </p>
+    <pre>4.625%  (cross-border transaction fee — observed, not PayPal's published 4.40%)
++ USD 0.31  (fixed fee — observation-consistent with PayPal's published $0.30)
++ 4.0%  (currency conversion spread, if client didn't pay in USD)
+─────────────────────────────────────────────
+≈ 8.6–9.1% of the payment, gone before it reaches her</pre>
+    <p>
+      That compounding is exactly what blindsided the Canadian client. He sees "CAD 1,000 paid,"
+      Ms. K sees far less arrive, and nobody was shown the two-stage deduction. Making that visible
+      is the product.
+    </p>
+
+    <h3>Open questions the document must record honestly</h3>
+    <p>These are unresolved and materially change the math. <code>CONSTITUTION.md</code> will list
+    them as open, not guess at them:</p>
+    <ol class="open-questions">
+      <li><strong>Does Ms. K qualify for merchant-tier (volume-discounted) rates?</strong> PayPal
+      offers reduced percentages above certain monthly volumes, granted on application. If she
+      qualifies, every rate above changes.</li>
+      <li><strong>The fixed-fee table is incomplete for other currencies.</strong> The USD fixed fee
+      is now observation-confirmed at $0.30 (see "Observed transactions" above). Fixed fees vary by
+      settlement currency; the full table still needs filling in as more currencies are supported.</li>
+      <li><strong>Do the three untested volume tiers hold?</strong> The lowest tier (Ms. K's own) is
+      now corrected against real data (4.625%, not 4.40%). The other three tiers
+      (3.90%/3.70%/3.40%) are still sourced only from designhill.com's tool, which doesn't ask for
+      seller country and may be applying a generic/US-style table regardless of where the seller is
+      registered — and its lowest tier just turned out to be wrong. Treat all three as suspect until
+      observed directly.</li>
+      <li><strong>Why does the observed rate (~4.62%) not match either of PayPal's published
+      figures?</strong> It's about 0.22 percentage points above the published "all other markets"
+      rate (4.40%), and now too low to be the EEA/UK rate (4.69%) — which wouldn't apply to
+      US-based clients anyway. Resolution path: a transaction at a substantially larger amount
+      (~$500+) would tighten the rate band by roughly an order of magnitude and confirm whether
+      4.625% holds at scale.</li>
+    </ol>
+    <p>
+      A prior open question about weekly USD→AED sweeping on withdrawal has been removed at the
+      user's direction — out of scope for this project.
+    </p>
+  </section>
+
+  <section>
+    <h2>Recommended approach</h2>
+
+    <h3>Architecture principle</h3>
+    <p>
+      The fee engine is a <strong>pure, dependency-free TypeScript module</strong> with exhaustive
+      unit tests, fully separate from UI and from network calls. The math is the product's entire
+      credibility; it must be auditable in isolation and must not require a running browser or a
+      live API to verify.
+    </p>
+    <p>Two calculation directions, and they are not symmetric:</p>
+    <ul>
+      <li><code>settle(grossPaid, buyerMarket, payCurrency)</code> → what actually lands in USD</li>
+      <li><code>quote(netTarget, buyerMarket, payCurrency)</code> → what to invoice to net the target</li>
+    </ul>
+    <p>
+      <code>quote</code> is the mathematically interesting one: it is <strong>not</strong>
+      <code>net / (1 - rate)</code>. The fixed fee and the FX spread apply at different points in the
+      chain, so the inverse has to unwind them in the correct order. This is the primary target for
+      test coverage, including a round-trip property test asserting <code>settle(quote(n)) ≈ n</code>.
+    </p>
+
+    <h3>Files to create</h3>
+    <table class="files-table">
+      <thead><tr><th>Path</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>docs/plan.html</td><td>This plan, rendered as HTML (first step)</td></tr>
+        <tr><td>CONSTITUTION.md</td><td>The deliverable</td></tr>
+        <tr><td>src/lib/fees/schedule.ts</td><td>Versioned fee tables keyed on <code>monthlyVolumeUSD</code> (trailing volume, not single-transaction size), <code>buyerMarket</code>, and <code>payCurrency</code>; each entry carries <code>effectiveFrom</code> + source URL</td></tr>
+        <tr><td>src/lib/fees/engine.ts</td><td>Pure <code>settle()</code> / <code>quote()</code> — no imports beyond types</td></tr>
+        <tr><td>src/lib/fees/engine.test.ts</td><td>Vitest suite, incl. the Canadian scenario from the README</td></tr>
+        <tr><td>src/lib/fx/frankfurter.ts</td><td>Base-rate fetch, isolated from the engine</td></tr>
+        <tr><td>src/app/page.tsx</td><td>Calculator UI</td></tr>
+        <tr><td>src/app/breakdown/[data]/page.tsx</td><td>Read-only shareable client view</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Stack</h3>
+    <ul>
+      <li><strong>Next.js (App Router) + TypeScript</strong> on Vercel</li>
+      <li><strong>Tailwind + shadcn/ui</strong></li>
+      <li><strong>No database.</strong> Shareable breakdowns encode their inputs in a compressed URL
+      param. No stored client data, no PII, no auth to build.</li>
+      <li><strong>FX base rates: Frankfurter</strong>
+      (<code>https://api.frankfurter.dev/v2/rates?base=USD&amp;quotes=CAD</code>) — ECB reference
+      rates, free, no API key, no account. Supplies the <em>base</em> rate only; PayPal's 4.0% spread
+      is applied on top by the engine.</li>
+      <li><strong>Vitest</strong> for the fee math.</li>
+      <li><strong>No PayPal API integration in v1.</strong> Worth recording <em>why</em> in the
+      document: PayPal exposes actual per-transaction fees via <code>seller_receivable_breakdown</code>
+      (<code>paypal_fee</code>, <code>net_amount</code>, <code>exchange_rate</code>) but publishes
+      <strong>no API for the fee schedule itself</strong>. Forward-looking estimates therefore require
+      a hand-curated table regardless, so the API buys reconciliation, not prediction — a v2 concern.</li>
+    </ul>
+
+    <h3>Maintenance contract</h3>
+    <p>
+      Fee tables go stale silently, which is the failure mode that would quietly make this tool
+      wrong. Every entry in <code>schedule.ts</code> carries an <code>effectiveFrom</code> date and
+      its source URL; the UI surfaces "rates as of &lt;date&gt;"; the document commits to a quarterly
+      review against PayPal's published schedule.
+    </p>
+
+    <h3>Design direction</h3>
+    <p>
+      For the shareable breakdown, the signature element is a <strong>vertical deduction ledger</strong>:
+      a single column where a bar's length literally encodes the surviving money, shrinking down the
+      page as each fee is subtracted.
+    </p>
+    <pre>CLIENT PAYS
+CAD 1,000.00                    ████████████████
+  − cross-border  4.40%   44.00 ███████████████
+  − fixed fee              0.42 ███████████████
+  − FX conversion 4.0%    38.22 ████████████
+YOU RECEIVE
+USD    662.14                   ████████████</pre>
+    <p>
+      It answers "where did my money go" in one glance, top-to-bottom like a receipt, and doubles as
+      the artifact Ms. K sends the client. No pie charts, no stat tiles.
+    </p>
+    <p>Tokens:</p>
+    <div class="tokens">
+      <span class="swatch"><span class="dot" style="background:#12203A"></span>navy ink #12203A</span>
+      <span class="swatch"><span class="dot" style="background:#FBFAF7"></span>warm paper #FBFAF7</span>
+      <span class="swatch"><span class="dot" style="background:#A6432B"></span>oxide red #A6432B</span>
+      <span class="swatch"><span class="dot" style="background:#1F6F5C"></span>deep teal #1F6F5C</span>
+      <span class="swatch"><span class="dot" style="background:#C9A227"></span>brass #C9A227</span>
+    </div>
+    <p>
+      Type: Fraunces for the display figure (restraint — one place only), IBM Plex Sans for body,
+      <strong>IBM Plex Mono for every number</strong> so figures align in tabular columns and read as
+      computed rather than marketed.
+    </p>
+
+    <h3>Roadmap in the document</h3>
+    <ul class="roadmap">
+      <li><span class="ver">v0.1</span> fee engine + test suite; named regression cases T1 (83.00→78.85), T2 (101.20→96.21), T3 (120.00→114.14); README's Canadian scenario included but flagged as having no ground truth of its own</li>
+      <li><span class="ver">v0.2</span> calculator UI, both directions</li>
+      <li><span class="ver">v0.3</span> shareable client breakdown</li>
+      <li><span class="ver">v0.4</span> fee-table refresh process, broader currency coverage</li>
+      <li><span class="ver">v1.0+</span> optional PayPal API reconciliation</li>
+    </ul>
+
+    <h3>Non-goals to state explicitly</h3>
+    <p>
+      Not bookkeeping, not tax/VAT handling, not a payment processor, not financial or legal advice.
+      Estimates, clearly labelled as estimates.
+    </p>
+  </section>
+
+  <section>
+    <h2>Execution order</h2>
+    <ol class="exec">
+      <li><strong>docs/plan.html</strong> — this plan as a standalone HTML page (requested mid-turn;
+      couldn't be created under plan mode's edit restriction).</li>
+      <li><strong>CONSTITUTION.md</strong> — the deliverable, carrying the fee table, the three open
+      questions, stack rationale, roadmap, and non-goals.</li>
+      <li>Scaffold Next.js + Vitest only if the user wants to continue past the document.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Verification</h2>
+    <ul>
+      <li>The document is the deliverable, so review is the primary check: the fee percentages must
+      match PayPal's published UAE schedule, and the three open questions must be present and marked
+      unresolved rather than silently resolved.</li>
+      <li>If the engine gets built: <code>pnpm vitest run</code> with the README's Canadian case as a
+      named test, plus the <code>settle(quote(n)) ≈ n</code> round-trip property.</li>
+      <li>Cross-check the rendered <code>docs/plan.html</code> opens cleanly in a browser and its
+      numbers match the source plan.</li>
+    </ul>
+  </section>
+
+  <footer class="sources">
+    <strong>Sources</strong>
+    <ul>
+      <li><a href="https://www.paypal.com/ae/webapps/mpp/merchant-fees">PayPal UAE merchant fees</a> — primary, published source, but its "all other markets" rate (4.40%) is now contradicted by three observed transactions (see "Observed transactions" above); its $0.30 fixed fee is observation-confirmed</li>
+      <li><a href="https://www.designhill.com/tools/paypal-fee-calculator">designhill.com PayPal fee calculator</a> — secondary, reconciliation source. Page source read directly to confirm the volume-tier table; two defects identified and corrected rather than reproduced. Its lowest tier's rate has since also been refuted by observed data; the other three tiers are unvalidated. Not authoritative on its own</li>
+      <li>Real transaction records (T1, T2, T3) — provided directly by the user; the project's only ground-truth source so far</li>
+      <li><a href="https://github.com/paypal/paypal-typescript-server-sdk">PayPal TypeScript Server SDK — seller receivable breakdown</a> — via context7</li>
+      <li><a href="https://frankfurter.dev/">Frankfurter API</a> — via context7</li>
+      <li><a href="https://open-entity.com/blog/paypal-business-uae">PayPal Business UAE limits</a> — third-party, no longer referenced by an open question (AED-sweep question removed at user's direction)</li>
+    </ul>
+  </footer>
+
+</div>
+</body>
+</html>
