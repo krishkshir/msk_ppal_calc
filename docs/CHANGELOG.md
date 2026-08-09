@@ -7,6 +7,24 @@ the substantive changes.
 
 ## Unreleased
 
+- Implemented v0.1: the pure fee engine (`settle`/`quote`) in
+  `src/lib/fees/` (`types.ts`, `money.ts`, `schedule.ts`, `engine.ts`),
+  per `docs/plan-v0.1.html`. Minimal TypeScript + Vitest scaffold
+  (`package.json`, `tsconfig.json`, `vitest.config.ts`) — no Next.js/UI
+  yet. 18 tests in `engine.test.ts` cover: T1/T2/T3 to the exact cent; a
+  refutation guard asserting the previously-wrong 4.40%+$0.30 and
+  4.625%+$0.30 pairs do *not* reproduce T1–T3; the designhill
+  single-transaction-size tiering bug is not reproduced (tiers by
+  trailing `monthlyVolumeUSD` only); a monotonically-decreasing
+  effective-rate check; the `settle(quote(n)) >= n` round-trip property
+  swept across both USD and CAD; and the README's Canadian scenario,
+  named explicitly as having no ground truth, computed via the engine's
+  documented "fee first, then convert" FX-order assumption. `tsc
+  --noEmit` and `pnpm test` both pass. Along the way, `settle()` was
+  corrected to downgrade a commercial-fee line item's confidence from
+  `observed` to `estimated` whenever the payment currency isn't USD,
+  since the fixed-fee portion is then an estimated currency conversion,
+  not an observed figure, even though the rate itself is observed.
 - Added `docs/plan-v0.1.html`: implementation proposal for the v0.1 roadmap
   milestone (fee engine + test suite) — module layout, `settle`/`quote`
   algorithms, the FX-order assumption for the ungrounded Canadian scenario,

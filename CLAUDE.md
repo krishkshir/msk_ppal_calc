@@ -4,13 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-No code exists yet. The repo currently contains only planning documents:
-`docs/CONSTITUTION.md`, `docs/plan.html`, `docs/CHANGELOG.md`, and
-`README.md`. There is no `package.json`, no source tree, no tests, and no
-commits on `main`. Before adding build/test/lint instructions here,
-scaffold the project per the tech stack decided in `docs/CONSTITUTION.md`
-and update this file with the real commands — don't invent them ahead of
-the scaffold.
+v0.1 is implemented: the pure fee engine (`settle`/`quote`) under
+`src/lib/fees/`, with an exhaustive Vitest suite (`src/lib/fees/engine.test.ts`)
+covering the T1–T3 regression cases, a refutation guard for the
+previously-wrong fee constants, the designhill tiering-bug check, and the
+README's ground-truth-free Canadian scenario. See `docs/plan-v0.1.html` for
+the implementation plan this was built from.
+
+There is still no Next.js app, no UI, and no FX network call — those are
+v0.2+ per the roadmap in `docs/CONSTITUTION.md`. `src/lib/fx/frankfurter.ts`
+does not exist yet; `fxBaseRateToUSD` is an injected parameter on `settle`/`quote`
+until it does.
+
+Commands (via `pnpm`):
+
+- `pnpm install` — install dependencies
+- `pnpm test` — run the Vitest suite once
+- `pnpm test:watch` — run Vitest in watch mode
+- `pnpm typecheck` — `tsc --noEmit`
 
 ## Before pushing to remote
 
