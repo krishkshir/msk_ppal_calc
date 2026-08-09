@@ -7,6 +7,20 @@ the substantive changes.
 
 ## Unreleased
 
+- Added `docs/plan-v0.1.html`: implementation proposal for the v0.1 roadmap
+  milestone (fee engine + test suite) — module layout, `settle`/`quote`
+  algorithms, the FX-order assumption for the ungrounded Canadian scenario,
+  and the test suite including a refutation guard for the previously-wrong
+  fee constants.
+- Corrected the fixed fee from **$0.30** to **$0.31** in `CLAUDE.md`,
+  `docs/CONSTITUTION.md`, and `docs/plan.html`. `4.625% + $0.30` — the pair
+  `CLAUDE.md` previously stated — does not reproduce any of T1/T2/T3; each
+  figure was individually inside its own feasible band from the three-point
+  solve, but not jointly feasible with the other. `4.625% + $0.31` is the
+  pair `CONSTITUTION.md`'s own derivation had already concluded fits all
+  three; the surrounding docs just hadn't been made consistent with it.
+  Found while planning v0.1, since the regression tests are T1/T2/T3
+  themselves.
 - Added `CLAUDE.md` § "Tool usage": use context7 for any library
   documentation lookups, and automatically invoke
   `/frontend-design:frontend-design` for any UI/UX/front-end design work.

@@ -58,13 +58,13 @@ figures and should be treated as suspect until observed:
 
 | Monthly volume | Published rate | Observed rate | Fixed fee |
 |---|---|---|---|
-| $0 – $3,000 *(Ms. K's tier)* | ~~4.40%~~ | **4.625%** (band 4.60–4.65%) | $0.30 *(observation-confirmed)* |
+| $0 – $3,000 *(Ms. K's tier)* | ~~4.40%~~ | **4.625%** (band 4.60–4.65%) | **$0.31** *(observed; PayPal's published $0.30 is individually in-band but not jointly feasible with 4.625% — see below)* |
 | $3,000.01 – $10,000 | 3.90% | unvalidated | $0.30 |
 | $10,000.01 – $100,000 | 3.70% | unvalidated | $0.30 |
 | above $100,000 | 3.40% | unvalidated | $0.30 |
 
 See "Observed transactions (ground truth)" below for how 4.625% and the
-confirmed $0.30 were derived, and why the published 4.40% figure is retained
+observed $0.31 were derived, and why the published 4.40% figure is retained
 in this table rather than deleted.
 
 ### Reconciling with Ms. K's current tool
@@ -153,6 +153,13 @@ problem; with three points it's clear the opposite is true. That reversal is
 left in this document deliberately, as a record of why single-observation
 inference was resisted and why these tables stay provisional until confirmed.
 
+**Note on joint feasibility:** the two bands above are each marginal, not
+joint — 4.625% and $0.30 individually fall inside their own bands but do not
+reproduce T1/T2/T3 *together* (they predict 4.14/4.98/5.85 against actual
+4.15/4.99/5.86, off by a cent each time). The exact pair used throughout this
+project, including by the fee engine, is **4.625% + $0.31**, per the
+"cleanest exact model" row above.
+
 **Unexplained residual:** the observed ~4.62% sits about 0.22 percentage
 points above PayPal's published "all other markets" rate of 4.40%, and is now
 too *low* to be explained by the 4.69% EEA/UK rate (both clients are
@@ -194,9 +201,10 @@ answered:
    offers reduced percentages above certain monthly volumes, granted on
    application. If she qualifies, every rate above changes.
 2. **The fixed-fee table is incomplete for other currencies.** The USD fixed
-   fee is now observation-confirmed at $0.30 (see "Observed transactions"
-   above). Fixed fees vary by settlement currency; the full table still needs
-   filling in as more currencies are supported.
+   fee is now observed at $0.31 (see "Observed transactions" above — PayPal's
+   published $0.30 is individually plausible but not jointly consistent with
+   the observed 4.625% rate). Fixed fees vary by settlement currency; the full
+   table still needs filling in as more currencies are supported.
 3. **Do the three untested volume tiers hold?** The lowest tier (Ms. K's own)
    is now corrected against real data (4.625%, not 4.40%). The other three
    tiers (3.90%/3.70%/3.40%) are still sourced only from designhill.com's
@@ -315,7 +323,7 @@ credentials and a backend that a pure calculator doesn't need.
 
 ### Sources
 
-- [PayPal UAE merchant fees](https://www.paypal.com/ae/webapps/mpp/merchant-fees) — primary, published source, but its "all other markets" rate (4.40%) is now contradicted by three observed transactions (see "Observed transactions" above); its $0.30 fixed fee is observation-confirmed.
+- [PayPal UAE merchant fees](https://www.paypal.com/ae/webapps/mpp/merchant-fees) — primary, published source, but its "all other markets" rate (4.40%) is now contradicted by three observed transactions (see "Observed transactions" above); its $0.30 fixed fee is individually plausible but not jointly consistent with the observed 4.625% rate — the observed pair is $0.31.
 - [designhill.com PayPal fee calculator](https://www.designhill.com/tools/paypal-fee-calculator) — secondary, reconciliation source. Its page source was read directly to confirm the volume-tier rate table; two defects were identified and corrected rather than reproduced (see "Reconciling with Ms. K's current tool" above). Its lowest tier's rate has since also been refuted by observed data; the other three tiers are unvalidated. Not authoritative on its own.
 - Real transaction records (T1, T2, T3) — provided directly by the user; the project's only ground-truth source so far.
 - [PayPal TypeScript Server SDK — seller receivable breakdown](https://github.com/paypal/paypal-typescript-server-sdk) — via context7.

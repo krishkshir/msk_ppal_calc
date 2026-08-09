@@ -46,7 +46,7 @@ doc-only and fee-model-correction changes, not just code.
 - **The commercial rate for Ms. K's account is not PayPal's published
   4.40%.** Three real, completed transactions (documented in
   `docs/CONSTITUTION.md` under "Observed transactions (ground truth)") refute
-  that figure; the corrected values are **4.625% + $0.30**, derived from a
+  that figure; the corrected values are **4.625% + $0.31**, derived from a
   three-point regression with an out-of-sample validation check. Any fee
   calculation in this project must use the corrected figures, not the
   originally-published PayPal number. Don't "fix" this back to 4.40% by
