@@ -346,8 +346,9 @@
         USD→USD and can't distinguish it from "convert first, then fee." It's the documented
         PayPal behaviour, but it ships as <code>confidence: "estimated"</code> on the FX line
         item, and the Canadian-scenario test is named to say so explicitly. It also implies a
-        non-USD (CAD) fixed fee, which open question #2 in <code>CONSTITUTION.md</code> already
-        flags as unresolved — the engine estimates it rather than inventing false precision.
+        non-USD (CAD) fixed fee, which <code>CONSTITUTION.md</code>'s "fixed-fee table for
+        currencies other than USD" open question already flags as unresolved — the engine
+        estimates it rather than inventing false precision.
       </p>
     </div>
   </section>
@@ -392,6 +393,15 @@
       <li><strong>The ~0.22pp residual</strong> between the observed 4.625% and PayPal's published
       4.40% — recorded, not explained.</li>
     </ol>
+    <p>
+      <strong>Update:</strong> as of the answers given after this plan shipped, two of the four are
+      now resolved (Ms. K does not qualify for merchant-tier rates, which also makes the three
+      untested volume tiers moot), one has a confirmed source but is still unfilled (non-USD fixed
+      fees — see <a href="https://www.paypal.com/ae/business/paypal-business-fees">PayPal Business
+      fees (AE)</a>), and one is parked at the user's direction (the ~0.22pp residual). This list is
+      left as-is above as the record of what was open when v0.1 shipped; see
+      <code>CONSTITUTION.md</code> § "Open questions" for the current state.
+    </p>
   </section>
 
   <section>

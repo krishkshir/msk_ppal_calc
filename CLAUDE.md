@@ -77,11 +77,22 @@ doc-only and fee-model-correction changes, not just code.
   is not `net / (1 - rate)`. The fixed fee and the FX spread apply at
   different points in the chain and must be unwound in the correct order.
   See `docs/CONSTITUTION.md` § "Design principles".
-- Several figures in `docs/CONSTITUTION.md` are explicitly marked unresolved
-  (merchant-tier eligibility, the three untested volume tiers, an
-  unexplained ~0.22pp gap between observed and published rates). Don't
-  silently resolve these while implementing — carry the "estimate" framing
-  into the UI.
+- Merchant-tier eligibility is resolved: Ms. K does **not** qualify for
+  PayPal's volume-discounted rates, so the three higher `OTHER`-market
+  volume tiers in `docs/CONSTITUTION.md` are moot for her — her practical
+  rate is always the $0–$3,000 tier (4.625% + $0.31, observed), regardless
+  of volume. Don't build UI or logic that assumes she might reach those
+  tiers without this being revisited.
+- Two figures in `docs/CONSTITUTION.md` remain explicitly unresolved: the
+  fixed-fee table for currencies other than USD (source of truth confirmed
+  as [PayPal Business fees (AE)](https://www.paypal.com/ae/business/paypal-business-fees),
+  extracted into `docs/CONSTITUTION.md` § "Fixed fee by currency
+  (published)", but not yet validated against a real non-USD transaction —
+  filling `schedule.ts` in from it is v0.4 work), and an unexplained
+  ~0.22pp gap between the observed 4.625% rate and PayPal's published
+  4.40% figure (parked at the user's direction, not being pursued). Don't
+  silently resolve either while implementing — carry the "estimate"
+  framing into the UI.
 
 ## Planned stack (decided, not yet installed)
 

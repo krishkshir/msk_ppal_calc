@@ -67,6 +67,53 @@ See "Observed transactions (ground truth)" below for how 4.625% and the
 observed $0.31 were derived, and why the published 4.40% figure is retained
 in this table rather than deleted.
 
+Confirmed with the user: Ms. K does **not** qualify for PayPal's
+merchant-tier (volume-discounted) rates (see "Open questions" below). The
+three higher tiers above are consequently not accessible to her regardless
+of trailing volume; the table is retained for completeness, but her
+practical rate is always the $0–$3,000 row.
+
+### Fixed fee by currency (published)
+
+Sourced from PayPal's business fees page
+(`paypal.com/ae/business/paypal-business-fees`, last updated 2026-05-28),
+confirmed with the user as the source of truth for fixed fees in
+currencies other than USD (see "Open questions" below):
+
+| Currency | Fixed fee |
+|---|---|
+| US dollar (USD) | 0.30 *(published — observed value is $0.31, see "Observed transactions")* |
+| Canadian dollar (CAD) | 0.30 |
+| Euro (EUR) | 0.35 |
+| UK pounds sterling (GBP) | 0.20 |
+| Swiss franc (CHF) | 0.55 |
+| Australian dollar (AUD) | 0.30 |
+| New Zealand dollar (NZD) | 0.45 |
+| Singapore dollar (SGD) | 0.50 |
+| Hong Kong dollar (HKD) | 2.35 |
+| Japanese yen (JPY) | 40.00 |
+| Swedish krona (SEK) | 3.25 |
+| Norwegian krone (NOK) | 2.80 |
+| Danish krone (DKK) | 2.60 |
+| Polish zloty (PLN) | 1.35 |
+| Czech koruna (CZK) | 10.00 |
+| Hungarian forint (HUF) | 90.00 |
+| Israeli new shekel (ILS) | 1.20 |
+| Mexican peso (MXN) | 4.00 |
+| Brazilian real (BRL) | 0.60 |
+| Malaysian ringgit (MYR) | 2.00 |
+| Philippine peso (PHP) | 15.00 |
+| New Taiwan dollar (TWD) | 10.00 |
+| Thai baht (THB) | 11.00 |
+| Russian ruble (RUB) | 10.00 |
+
+Given the USD discrepancy above (published $0.30, observed $0.31 — a
++3.3% gap), treat every other currency's figure here as similarly liable
+to be slightly off from what a real transaction would show. This table is
+a starting point for `schedule.ts` (v0.4 work, per the roadmap), not a
+substitute for observation — none of these non-USD figures are validated
+against a real transaction yet.
+
 ### Reconciling with Ms. K's current tool
 
 Ms. K currently quotes her US-based clients using
@@ -193,36 +240,47 @@ Canadian client and what put Ms. K in a position of eating the difference.
 
 ### Open questions
 
-These materially change the math above and are **unresolved**. The calculator
-must treat its fee table as current-best-known, not gospel, until these are
-answered:
+Two of the four questions originally listed here are now resolved by the
+user. Per this project's practice of keeping resolutions and reversals in
+the document rather than deleting them (see "Observed transactions" above
+for why), they're recorded below rather than silently dropped.
 
-1. **Does Ms. K qualify for merchant-tier (volume-discounted) rates?** PayPal
-   offers reduced percentages above certain monthly volumes, granted on
-   application. If she qualifies, every rate above changes.
-2. **The fixed-fee table is incomplete for other currencies.** The USD fixed
-   fee is now observed at $0.31 (see "Observed transactions" above — PayPal's
-   published $0.30 is individually plausible but not jointly consistent with
-   the observed 4.625% rate). Fixed fees vary by settlement currency; the full
-   table still needs filling in as more currencies are supported.
-3. **Do the three untested volume tiers hold?** The lowest tier (Ms. K's own)
-   is now corrected against real data (4.625%, not 4.40%). The other three
-   tiers (3.90%/3.70%/3.40%) are still sourced only from designhill.com's
-   tool, which doesn't ask for seller country and may be applying a
-   generic/US-style table regardless of where the seller is registered — and
-   its lowest tier just turned out to be wrong. Treat all three as suspect
-   until observed directly.
-4. **Why does the observed rate (~4.62%) not match either of PayPal's
-   published figures?** It's about 0.22 percentage points above the published
-   "all other markets" rate (4.40%), and now too low to be the EEA/UK rate
-   (4.69%) — which wouldn't apply to US-based clients anyway. Resolution
-   path: a transaction at a substantially larger amount (~$500+) would
-   tighten the rate band by roughly an order of magnitude and confirm
-   whether 4.625% holds at scale.
+**Resolved, confirmed with the user:**
 
-None of these block v0.1 — the engine ships with the observation-corrected
-table above and labels every output "estimate." But they are open, not
-resolved, and `docs/plan.html` and this file are the record of that.
+- **Does Ms. K qualify for merchant-tier (volume-discounted) rates?** No.
+  She has not applied and isn't pursuing it.
+- **Do the three untested volume tiers hold?** Moot as a consequence of
+  the above: since Ms. K doesn't qualify for merchant-tier rates, whether
+  the 3.90%/3.70%/3.40% tiers hold is no longer relevant to her account —
+  her practical rate is always the $0–$3,000 tier (4.625% + $0.31,
+  observed), regardless of volume. The tier table in "The current UAE fee
+  schedule" above is left as-is for reference.
+
+**Still open:**
+
+These materially change the math above and remain **unresolved**. The
+calculator must treat its fee table as current-best-known, not gospel,
+until they're answered:
+
+1. **The fixed-fee table for currencies other than USD.** Source of truth
+   confirmed with the user:
+   [paypal.com/ae/business/paypal-business-fees](https://www.paypal.com/ae/business/paypal-business-fees)
+   — see "Fixed fee by currency (published)" above for the extracted
+   table. Filling `schedule.ts` in from it is v0.4 work, per the roadmap;
+   every figure in that table is unvalidated by observation, the same gap
+   that put the USD figure a cent off ($0.30 published vs. $0.31
+   observed).
+2. **Why does the observed rate (~4.62%) not match either of PayPal's
+   published figures?** It's about 0.22 percentage points above the
+   published "all other markets" rate (4.40%), and now too low to be the
+   EEA/UK rate (4.69%) — which wouldn't apply to US-based clients anyway.
+   **Parked at the user's direction** — not being actively pursued for
+   now. Resolution path, if revisited: a transaction at a substantially
+   larger amount (~$500+) would tighten the rate band by roughly an order
+   of magnitude and confirm whether 4.625% holds at scale.
+
+None of these block v0.1 (already shipped) — the engine ships with the
+observation-corrected table above and labels every output "estimate."
 
 (A prior open question about weekly USD→AED sweeping on withdrawal has been
 removed at the user's direction — out of scope for this project.)
@@ -324,8 +382,9 @@ credentials and a backend that a pure calculator doesn't need.
 ### Sources
 
 - [PayPal UAE merchant fees](https://www.paypal.com/ae/webapps/mpp/merchant-fees) — primary, published source, but its "all other markets" rate (4.40%) is now contradicted by three observed transactions (see "Observed transactions" above); its $0.30 fixed fee is individually plausible but not jointly consistent with the observed 4.625% rate — the observed pair is $0.31.
-- [designhill.com PayPal fee calculator](https://www.designhill.com/tools/paypal-fee-calculator) — secondary, reconciliation source. Its page source was read directly to confirm the volume-tier rate table; two defects were identified and corrected rather than reproduced (see "Reconciling with Ms. K's current tool" above). Its lowest tier's rate has since also been refuted by observed data; the other three tiers are unvalidated. Not authoritative on its own.
+- [PayPal Business fees (AE)](https://www.paypal.com/ae/business/paypal-business-fees) — primary source for the fixed-fee-by-currency table (see "Fixed fee by currency (published)" above), last updated 2026-05-28. Confirmed with the user as the source of truth for non-USD fixed fees; not yet validated against any real non-USD transaction.
+- [designhill.com PayPal fee calculator](https://www.designhill.com/tools/paypal-fee-calculator) — secondary, reconciliation source. Its page source was read directly to confirm the volume-tier rate table; two defects were identified and corrected rather than reproduced (see "Reconciling with Ms. K's current tool" above). Its lowest tier's rate has since also been refuted by observed data; the other three tiers are now moot (Ms. K doesn't qualify for merchant-tier rates — see "Open questions" above). Not authoritative on its own.
 - Real transaction records (T1, T2, T3) — provided directly by the user; the project's only ground-truth source so far.
 - [PayPal TypeScript Server SDK — seller receivable breakdown](https://github.com/paypal/paypal-typescript-server-sdk) — via context7.
 - [Frankfurter API](https://frankfurter.dev/) — via context7.
-- [PayPal Business UAE limits](https://open-entity.com/blog/paypal-business-uae) — third-party, basis of open question #1, unverified.
+- [PayPal Business UAE limits](https://open-entity.com/blog/paypal-business-uae) — third-party, was cited as background for the merchant-tier eligibility question, since resolved (Ms. K does not qualify) — unverified.

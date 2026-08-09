@@ -7,6 +7,44 @@ the substantive changes.
 
 ## Unreleased
 
+- Answered 2 of the 4 open questions in `docs/CONSTITUTION.md` /
+  `docs/plan.html`, partially answered a 3rd, and parked the 4th, per the
+  user:
+  - **Merchant-tier eligibility (resolved: no).** Ms. K does not qualify
+    for PayPal's volume-discounted merchant-tier rates. Added a note to
+    "The current UAE fee schedule" and moved the question out of the
+    open-questions list into a "Resolved" note.
+  - **The three untested volume tiers (resolved: moot).** Since Ms. K
+    doesn't qualify for merchant-tier rates, whether the
+    3.90%/3.70%/3.40% tiers hold is no longer relevant to her account —
+    her practical rate is always the $0–$3,000 tier. Also moved out of
+    the open-questions list.
+  - **Fixed-fee table for other currencies (source confirmed, not yet
+    filled into code).** User designated
+    [paypal.com/ae/business/paypal-business-fees](https://www.paypal.com/ae/business/paypal-business-fees)
+    as the source of truth. Fetched and spot-checked the page (raw HTML
+    matched the extracted USD/CAD figures and the "28, May 2026"
+    last-updated date), then added a new "Fixed fee by currency
+    (published)" table to `docs/CONSTITUTION.md` and `docs/plan.html`
+    with all 24 currencies listed on that page. USD's published $0.30
+    still differs from the observed $0.31 — flagged as a reason to treat
+    every other currency's figure as similarly provisional. Filling
+    `schedule.ts` in from this table remains v0.4 work (unchanged scope,
+    per the roadmap) — this is a docs-only change, not a code change.
+  - **The ~0.22pp residual gap (parked).** Left in the open-questions
+    list, marked "parked at the user's direction — not being actively
+    pursued for now" rather than actively unresolved.
+  - Updated `docs/CONSTITUTION.md`'s Sources section (new PayPal Business
+    fees citation; corrected the designhill and "PayPal Business UAE
+    limits" citations to reflect the resolutions) and fixed a pre-existing
+    inconsistency in `docs/plan.html`'s sources footer, where the "PayPal
+    Business UAE limits" citation had drifted to describe the wrong
+    (already-removed) open question.
+  - Updated `CLAUDE.md`'s domain-model bullet accordingly.
+  - Added a dated addendum to `docs/plan-v0.1.html`'s (historical,
+    "carried forward, not resolved") open-questions section pointing to
+    this resolution, and fixed a cross-reference to "open question #2"
+    that broke when the open-questions list was renumbered.
 - Fixed a bug from code review: `settle()` had no lower bound on
   `grossPaidCents`, so a transaction smaller than the fixed fee (e.g.
   $0.10 against the $0.31 fixed fee) silently produced a negative

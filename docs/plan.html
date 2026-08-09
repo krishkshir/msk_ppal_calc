@@ -295,6 +295,58 @@
       See "Observed transactions (ground truth)" below for how 4.625% and the observed $0.31 were
       derived, and why the published 4.40% figure is retained rather than deleted.
     </p>
+    <p>
+      Confirmed with the user: Ms. K does <strong>not</strong> qualify for PayPal's merchant-tier
+      (volume-discounted) rates (see "Open questions the document must record honestly" below). The
+      three higher tiers above are consequently not accessible to her regardless of trailing volume;
+      the table is retained for completeness, but her practical rate is always the $0–$3,000 row.
+    </p>
+
+    <h3>Fixed fee by currency (published)</h3>
+    <p>
+      Sourced from PayPal's business fees page
+      (<code>paypal.com/ae/business/paypal-business-fees</code>, last updated 2026-05-28), confirmed
+      with the user as the source of truth for fixed fees in currencies other than USD (see "Open
+      questions" below):
+    </p>
+    <table>
+      <thead>
+        <tr><th>Currency</th><th>Fixed fee</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>US dollar (USD)</td><td class="num">0.30 <em>(published — observed value is $0.31)</em></td></tr>
+        <tr><td>Canadian dollar (CAD)</td><td class="num">0.30</td></tr>
+        <tr><td>Euro (EUR)</td><td class="num">0.35</td></tr>
+        <tr><td>UK pounds sterling (GBP)</td><td class="num">0.20</td></tr>
+        <tr><td>Swiss franc (CHF)</td><td class="num">0.55</td></tr>
+        <tr><td>Australian dollar (AUD)</td><td class="num">0.30</td></tr>
+        <tr><td>New Zealand dollar (NZD)</td><td class="num">0.45</td></tr>
+        <tr><td>Singapore dollar (SGD)</td><td class="num">0.50</td></tr>
+        <tr><td>Hong Kong dollar (HKD)</td><td class="num">2.35</td></tr>
+        <tr><td>Japanese yen (JPY)</td><td class="num">40.00</td></tr>
+        <tr><td>Swedish krona (SEK)</td><td class="num">3.25</td></tr>
+        <tr><td>Norwegian krone (NOK)</td><td class="num">2.80</td></tr>
+        <tr><td>Danish krone (DKK)</td><td class="num">2.60</td></tr>
+        <tr><td>Polish zloty (PLN)</td><td class="num">1.35</td></tr>
+        <tr><td>Czech koruna (CZK)</td><td class="num">10.00</td></tr>
+        <tr><td>Hungarian forint (HUF)</td><td class="num">90.00</td></tr>
+        <tr><td>Israeli new shekel (ILS)</td><td class="num">1.20</td></tr>
+        <tr><td>Mexican peso (MXN)</td><td class="num">4.00</td></tr>
+        <tr><td>Brazilian real (BRL)</td><td class="num">0.60</td></tr>
+        <tr><td>Malaysian ringgit (MYR)</td><td class="num">2.00</td></tr>
+        <tr><td>Philippine peso (PHP)</td><td class="num">15.00</td></tr>
+        <tr><td>New Taiwan dollar (TWD)</td><td class="num">10.00</td></tr>
+        <tr><td>Thai baht (THB)</td><td class="num">11.00</td></tr>
+        <tr><td>Russian ruble (RUB)</td><td class="num">10.00</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Given the USD discrepancy above (published $0.30, observed $0.31 — a +3.3% gap), treat every
+      other currency's figure here as similarly liable to be slightly off from what a real
+      transaction would show. This table is a starting point for <code>schedule.ts</code> (v0.4
+      work, per the roadmap), not a substitute for observation — none of these non-USD figures are
+      validated against a real transaction yet.
+    </p>
 
     <h3>Reconciling with Ms. K's current tool</h3>
     <p>
@@ -426,28 +478,37 @@ function setPapPalCommissionToolsPg(){
     </p>
 
     <h3>Open questions the document must record honestly</h3>
-    <p>These are unresolved and materially change the math. <code>CONSTITUTION.md</code> will list
-    them as open, not guess at them:</p>
+    <p>
+      Two of the four questions originally listed here are now resolved by the user. Per this
+      project's practice of keeping resolutions and reversals in the document rather than deleting
+      them, they're recorded below rather than silently dropped.
+    </p>
+    <p><strong>Resolved, confirmed with the user:</strong></p>
+    <ul>
+      <li><strong>Does Ms. K qualify for merchant-tier (volume-discounted) rates?</strong> No. She
+      has not applied and isn't pursuing it.</li>
+      <li><strong>Do the three untested volume tiers hold?</strong> Moot as a consequence of the
+      above: since Ms. K doesn't qualify for merchant-tier rates, whether the 3.90%/3.70%/3.40%
+      tiers hold is no longer relevant to her account — her practical rate is always the $0–$3,000
+      tier (4.625% + $0.31, observed), regardless of volume.</li>
+    </ul>
+    <p><strong>Still open:</strong> these materially change the math above and remain unresolved.
+    <code>CONSTITUTION.md</code> will list them as open, not guess at them:</p>
     <ol class="open-questions">
-      <li><strong>Does Ms. K qualify for merchant-tier (volume-discounted) rates?</strong> PayPal
-      offers reduced percentages above certain monthly volumes, granted on application. If she
-      qualifies, every rate above changes.</li>
-      <li><strong>The fixed-fee table is incomplete for other currencies.</strong> The USD fixed fee
-      is now observed at $0.31 (see "Observed transactions" above — PayPal's published $0.30 is
-      individually plausible but not jointly consistent with the observed 4.625% rate). Fixed fees vary by
-      settlement currency; the full table still needs filling in as more currencies are supported.</li>
-      <li><strong>Do the three untested volume tiers hold?</strong> The lowest tier (Ms. K's own) is
-      now corrected against real data (4.625%, not 4.40%). The other three tiers
-      (3.90%/3.70%/3.40%) are still sourced only from designhill.com's tool, which doesn't ask for
-      seller country and may be applying a generic/US-style table regardless of where the seller is
-      registered — and its lowest tier just turned out to be wrong. Treat all three as suspect until
-      observed directly.</li>
+      <li><strong>The fixed-fee table for currencies other than USD.</strong> Source of truth
+      confirmed with the user:
+      <a href="https://www.paypal.com/ae/business/paypal-business-fees">paypal.com/ae/business/paypal-business-fees</a>
+      — see "Fixed fee by currency (published)" above for the extracted table. Filling
+      <code>schedule.ts</code> in from it is v0.4 work, per the roadmap; every figure in that table
+      is unvalidated by observation, the same gap that put the USD figure a cent off ($0.30
+      published vs. $0.31 observed).</li>
       <li><strong>Why does the observed rate (~4.62%) not match either of PayPal's published
       figures?</strong> It's about 0.22 percentage points above the published "all other markets"
       rate (4.40%), and now too low to be the EEA/UK rate (4.69%) — which wouldn't apply to
-      US-based clients anyway. Resolution path: a transaction at a substantially larger amount
-      (~$500+) would tighten the rate band by roughly an order of magnitude and confirm whether
-      4.625% holds at scale.</li>
+      US-based clients anyway. <strong>Parked at the user's direction</strong> — not being actively
+      pursued for now. Resolution path, if revisited: a transaction at a substantially larger
+      amount (~$500+) would tighten the rate band by roughly an order of magnitude and confirm
+      whether 4.625% holds at scale.</li>
     </ol>
     <p>
       A prior open question about weekly USD→AED sweeping on withdrawal has been removed at the
@@ -593,11 +654,12 @@ USD    662.14                   ████████████</pre>
     <strong>Sources</strong>
     <ul>
       <li><a href="https://www.paypal.com/ae/webapps/mpp/merchant-fees">PayPal UAE merchant fees</a> — primary, published source, but its "all other markets" rate (4.40%) is now contradicted by three observed transactions (see "Observed transactions" above); its $0.30 fixed fee is individually plausible but not jointly consistent with the observed 4.625% rate — the observed pair is $0.31</li>
-      <li><a href="https://www.designhill.com/tools/paypal-fee-calculator">designhill.com PayPal fee calculator</a> — secondary, reconciliation source. Page source read directly to confirm the volume-tier table; two defects identified and corrected rather than reproduced. Its lowest tier's rate has since also been refuted by observed data; the other three tiers are unvalidated. Not authoritative on its own</li>
+      <li><a href="https://www.paypal.com/ae/business/paypal-business-fees">PayPal Business fees (AE)</a> — primary source for the fixed-fee-by-currency table (see "Fixed fee by currency (published)" above), last updated 2026-05-28. Confirmed with the user as the source of truth for non-USD fixed fees; not yet validated against any real non-USD transaction</li>
+      <li><a href="https://www.designhill.com/tools/paypal-fee-calculator">designhill.com PayPal fee calculator</a> — secondary, reconciliation source. Page source read directly to confirm the volume-tier table; two defects identified and corrected rather than reproduced. Its lowest tier's rate has since also been refuted by observed data; the other three tiers are now moot (Ms. K doesn't qualify for merchant-tier rates — see "Open questions" above). Not authoritative on its own</li>
       <li>Real transaction records (T1, T2, T3) — provided directly by the user; the project's only ground-truth source so far</li>
       <li><a href="https://github.com/paypal/paypal-typescript-server-sdk">PayPal TypeScript Server SDK — seller receivable breakdown</a> — via context7</li>
       <li><a href="https://frankfurter.dev/">Frankfurter API</a> — via context7</li>
-      <li><a href="https://open-entity.com/blog/paypal-business-uae">PayPal Business UAE limits</a> — third-party, no longer referenced by an open question (AED-sweep question removed at user's direction)</li>
+      <li><a href="https://open-entity.com/blog/paypal-business-uae">PayPal Business UAE limits</a> — third-party, was cited as background for the merchant-tier eligibility question, since resolved (Ms. K does not qualify) — unverified</li>
     </ul>
   </footer>
 
