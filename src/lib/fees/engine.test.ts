@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { quote, settle } from "./engine";
+import { roundHalfUpCents } from "./money";
 import { selectTier } from "./schedule";
 
 describe("settle — named regression cases (T1-T3, real completed transactions)", () => {
@@ -50,6 +51,22 @@ describe("settle — named regression cases (T1-T3, real completed transactions)
   });
 });
 
+describe("settle — guards against a negative received amount", () => {
+  // A transaction smaller than the fixed fee (e.g. a $0.10 payment against
+  // a $0.31 fixed fee) would otherwise silently produce a negative
+  // `received` — nonsensical output a v0.2 UI could display as-is.
+  it("throws rather than returning negative cents for a tiny transaction", () => {
+    expect(() =>
+      settle({
+        grossPaidCents: 10, // $0.10 — smaller than the $0.31 fixed fee alone
+        payCurrency: "USD",
+        buyerMarket: "OTHER",
+        monthlyVolumeUSDCents: 0,
+      }),
+    ).toThrow(/negative received amount/);
+  });
+});
+
 describe("settle — refutation guard", () => {
   // CLAUDE.md: "Don't 'fix' this back to 4.40% by reverting to the source
   // page." These pairs were considered and refuted (docs/CONSTITUTION.md,
@@ -63,7 +80,7 @@ describe("settle — refutation guard", () => {
   ];
 
   function feeUnder(rate: number, fixedCents: number, grossPaidCents: number): number {
-    return Math.floor(grossPaidCents * rate + fixedCents + 0.5);
+    return roundHalfUpCents(grossPaidCents * rate + fixedCents);
   }
 
   it("4.40% + $0.30 (originally-published PayPal figure) does not reproduce T1-T3", () => {

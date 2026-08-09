@@ -93,6 +93,14 @@ export function settle(input: SettleInput): Breakdown {
   const commercialFeeCents = roundHalfUpCents(grossPaidCents * tier.rate + fixedFeeCents);
   const netInPayCurrencyCents = grossPaidCents - commercialFeeCents;
 
+  if (netInPayCurrencyCents < 0) {
+    throw new Error(
+      `grossPaidCents (${grossPaidCents}) is smaller than the commercial fee it ` +
+        `would incur (${commercialFeeCents} ${payCurrency} cents) — settle() cannot ` +
+        `return a negative received amount.`,
+    );
+  }
+
   const fixedFeeIsEstimated = payCurrency !== ACCOUNT_CURRENCY;
   const commercialFee: FeeLineItem = {
     label: `Cross-border transaction fee (${(tier.rate * 100).toFixed(3)}% + fixed)`,

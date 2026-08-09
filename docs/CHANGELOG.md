@@ -7,6 +7,24 @@ the substantive changes.
 
 ## Unreleased
 
+- Fixed a bug from code review: `settle()` had no lower bound on
+  `grossPaidCents`, so a transaction smaller than the fixed fee (e.g.
+  $0.10 against the $0.31 fixed fee) silently produced a negative
+  `received` amount instead of erroring. `settle()` now throws. Also:
+  corrected `money.ts`'s rounding doc comment (it claimed ties round
+  "away from zero"; `Math.floor(cents + 0.5)` actually rounds toward
+  positive infinity — only distinguishable for negative input, which
+  can no longer reach it after the guard above); had
+  `engine.test.ts`'s refutation-guard test import `roundHalfUpCents`
+  from `money.ts` instead of reimplementing the rounding formula
+  locally; and removed `dollarsToCents`/`centsToDollars` from
+  `money.ts` as unused speculative exports (no call site in this repo
+  yet).
+- Added `CLAUDE.md` § "GitHub account": always use the `krishkshir`
+  account for GitHub write actions (`git push`, `gh pr create`, etc.).
+  Found while opening the v0.1 PR — the `gh` CLI's default active account
+  had only read access to this repo, which `gh pr create` reported as
+  "must be a collaborator" rather than an auth error.
 - Implemented v0.1: the pure fee engine (`settle`/`quote`) in
   `src/lib/fees/` (`types.ts`, `money.ts`, `schedule.ts`, `engine.ts`),
   per `docs/plan-v0.1.html`. Minimal TypeScript + Vitest scaffold
