@@ -7,6 +7,14 @@ the substantive changes.
 
 ## Unreleased
 
+- Added `CLAUDE.md` § "Visual verification and debugging": use the
+  `claude-for-safari` skill to load pages in Safari and screenshot them for
+  UI verification once there's a UI to check, opening a new tab and
+  cleaning up (tab, screenshots, temp binaries) when done. Documents a
+  verified fallback screenshot method (`screencapture -R<bounds>` from
+  AppleScript-reported window bounds) since the skill's documented
+  CoreGraphics-window-ID capture path proved unreliable in this
+  environment.
 - Added `CLAUDE.md` § "Before pushing to remote": update `CLAUDE.md`,
   `README.md`, and everything under `docs/` (including this changelog) in
   the same change before pushing.

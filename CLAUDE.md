@@ -81,6 +81,34 @@ encode their inputs in the URL. No PayPal API integration in v1 (PayPal
 exposes actual fees per completed transaction but no endpoint for the fee
 *schedule* itself, so a hand-curated, dated table is required regardless).
 
+## Visual verification and debugging
+
+Once there's a UI to check (the Next.js app, or `docs/plan.html` in the
+meantime), use the `claude-for-safari` skill to load a page in the user's
+real Safari and screenshot it for visual verification — confirming a
+rendered layout, checking a fee-breakdown UI matches the model, debugging
+a CSS issue, etc. Prefer this over asking the user to manually check.
+
+- Open the target in a **new tab**, not the user's current tab — don't
+  navigate away from tabs they already have open. Close that tab when
+  done.
+- Verified in this repo: the skill's documented screenshot path
+  (`safari_wid` + `screencapture -l <CGWindowID>`) was unreliable here —
+  it intermittently returned a bogus small window or nothing, even
+  though Screen Recording permission itself works fine (plain
+  `screencapture -x` full-screen succeeds immediately). If the
+  `safari_wid` route fails or returns implausible bounds, fall back to:
+  activate Safari, read `bounds of window 1` via AppleScript, then
+  `screencapture -x -R<x>,<y>,<width>,<height>` in the same shell call
+  (activation and capture must happen back-to-back or focus reverts to
+  the terminal).
+- Save screenshots to `.playwright-mcp/` in the project root (per the
+  global Playwright convention), per the global CLAUDE.md.
+- Clean up when done: close the tab you opened, delete any screenshots
+  and compiled helper binaries (e.g. under `/tmp/claude-for-safari`) you
+  created for the check, and confirm `git status` is clean before
+  finishing. Don't touch the user's other tabs.
+
 ## Non-goals
 
 Not a payment processor, not bookkeeping/accounting software, not tax or
