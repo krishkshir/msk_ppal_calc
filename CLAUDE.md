@@ -109,6 +109,16 @@ a CSS issue, etc. Prefer this over asking the user to manually check.
   created for the check, and confirm `git status` is clean before
   finishing. Don't touch the user's other tabs.
 
+## Tool usage
+
+- For any library documentation (framework/SDK/API/CLI syntax, config,
+  version migration) — Next.js, Tailwind, shadcn/ui, Vitest, the
+  Frankfurter API, etc. — use context7 (per the global `context7` rule)
+  instead of relying on training data, which may be stale.
+- For any UI/UX/front-end design work — layout, visual styling, component
+  aesthetics, typography — automatically invoke the
+  `/frontend-design:frontend-design` skill rather than designing ad hoc.
+
 ## Non-goals
 
 Not a payment processor, not bookkeeping/accounting software, not tax or

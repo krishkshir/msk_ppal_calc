@@ -7,6 +7,9 @@ the substantive changes.
 
 ## Unreleased
 
+- Added `CLAUDE.md` § "Tool usage": use context7 for any library
+  documentation lookups, and automatically invoke
+  `/frontend-design:frontend-design` for any UI/UX/front-end design work.
 - Added `CLAUDE.md` § "Visual verification and debugging": use the
   `claude-for-safari` skill to load pages in Safari and screenshot them for
   UI verification once there's a UI to check, opening a new tab and
