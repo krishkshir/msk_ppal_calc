@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan v0.3 — msk_ppal_calc</title>
+<style>
+  :root {
+    --ink: #12203A;
+    --paper: #FBFAF7;
+    --paper-dim: #F3F1EA;
+    --rule: #DAD5C7;
+    --red: #A6432B;
+    --teal: #1F6F5C;
+    --brass: #C9A227;
+    --muted: #5B6472;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 840px; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
+  header.page-head {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 2rem;
+    margin-bottom: 3rem;
+  }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 0.75rem;
+  }
+  h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 600;
+    font-size: clamp(2rem, 5vw, 2.75rem);
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.01em;
+  }
+  .subtitle { color: var(--muted); font-size: 1.05rem; margin: 0; }
+  h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.5rem;
+    margin: 3rem 0 1rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+  }
+  h2:first-of-type { border-top: none; padding-top: 0; }
+  h3 {
+    font-size: 1.05rem;
+    margin: 2rem 0 0.75rem;
+    color: var(--ink);
+  }
+  p { margin: 0 0 1rem; }
+  blockquote {
+    margin: 1.5rem 0;
+    padding: 1rem 1.25rem;
+    background: var(--paper-dim);
+    border-left: 3px solid var(--brass);
+    font-style: italic;
+    color: var(--ink);
+  }
+  blockquote p:last-child { margin-bottom: 0; }
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    background: var(--paper-dim);
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+  pre {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 1.25rem 1.5rem;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.7;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.25rem 0;
+    font-size: 0.95rem;
+  }
+  caption { caption-side: bottom; }
+  th, td {
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  td:nth-child(2), td.num {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    white-space: nowrap;
+  }
+  .callout {
+    margin: 1.5rem 0;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--red);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--red) 6%, var(--paper));
+  }
+  .callout .label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--red);
+    margin: 0 0 0.5rem;
+    font-weight: 600;
+  }
+  .callout.ok {
+    border-color: var(--teal);
+    background: color-mix(in srgb, var(--teal) 6%, var(--paper));
+  }
+  .callout.ok .label { color: var(--teal); }
+  .open-questions {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .open-questions li {
+    padding: 0.9rem 0 0.9rem 2.25rem;
+    position: relative;
+    border-bottom: 1px solid var(--rule);
+  }
+  .open-questions li:last-child { border-bottom: none; }
+  .open-questions li::before {
+    content: "?";
+    position: absolute;
+    left: 0;
+    top: 0.85rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    border: 1.5px solid var(--brass);
+    color: var(--brass);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .open-questions strong { color: var(--ink); }
+  .files-table td:first-child, .files-table th:first-child {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.85rem;
+    color: var(--teal);
+  }
+  ul.roadmap { list-style: none; margin: 0; padding: 0; }
+  ul.roadmap li {
+    display: flex;
+    gap: 1rem;
+    padding: 0.6rem 0;
+    align-items: baseline;
+  }
+  ul.roadmap .ver {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-weight: 600;
+    color: var(--teal);
+    min-width: 4.5rem;
+  }
+  ol.exec { padding-left: 1.25rem; }
+  ol.exec li { margin-bottom: 0.6rem; }
+  ul.steps { padding-left: 1.25rem; }
+  ul.steps li { margin-bottom: 0.5rem; }
+  a { color: var(--teal); }
+  footer.sources {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  footer.sources ul { padding-left: 1.25rem; }
+  .status-pill {
+    display: inline-block;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--teal);
+    border: 1px solid var(--teal);
+    border-radius: 999px;
+    padding: 0.2rem 0.7rem;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page-head">
+    <p class="eyebrow">Plan · msk_ppal_calc · v0.3</p>
+    <h1>Implementing v0.3: the shareable client-facing breakdown</h1>
+    <p class="subtitle">Proposal for the third roadmap milestone in <code>docs/CONSTITUTION.md</code> —
+    a stateless, URL-encoded read-only page Ms. K can send a client, showing exactly where their
+    payment went.</p>
+    <p style="margin-top:1rem"><span class="status-pill">Proposed</span></p>
+  </header>
+
+  <section>
+    <h2>Scope</h2>
+    <p>
+      <code>CONSTITUTION.md</code> gives this project two jobs, not one. v0.2 shipped the first —
+      help Ms. K quote correctly. <strong>v0.3 is the second, and it's the one the originating
+      complaint was actually about:</strong>
+    </p>
+    <blockquote>
+      <p>A new client from Canada finds it confusing cos it doesn't show him the transaction fee
+      calculation but deducted it from me.</p>
+    </blockquote>
+    <p>
+      Today <code>src/components/fee-breakdown.tsx</code>'s ledger exists only inside Ms. K's own
+      calculator session. She has no way to hand a client the math, so a shortfall still reads as
+      "she overcharged me" instead of "PayPal's cut, itemized." v0.3 closes that gap: a URL Ms. K
+      can paste into an email or a chat message that renders a read-only, client-perspective
+      breakdown of one specific payment — no login, no account, nothing stored server-side.
+    </p>
+    <p>
+      Per the roadmap, this is <strong>"Shareable client-facing breakdown (the transparency
+      artifact)."</strong> The tech-stack table already committed to the mechanism:
+      <em>"Shareable breakdowns encode their inputs into the URL itself. No database, no stored
+      client data, no accounts, no auth."</em> This plan does not revisit that decision; it works
+      out what has to be encoded, decoded, and rendered to make it real.
+    </p>
+    <p>Explicitly out of scope, per the roadmap's own sequencing:</p>
+    <ul>
+      <li><strong>v0.4</strong> — fee-table refresh workflow, broader currency/buyer-market
+      coverage, resolving the two still-open questions in <code>CONSTITUTION.md</code>. v0.3 adds
+      no new currencies and no new fee math; it only reuses <code>settle()</code> exactly as it
+      exists today.</li>
+      <li><strong>v1.0+</strong> — PayPal API reconciliation.</li>
+    </ul>
+    <p>
+      <code>src/lib/fees/{types,money,schedule,engine}.ts</code> are <strong>not touched</strong> —
+      the "fee engine is pure and isolated" design principle holds; v0.3 is a new consumer of the
+      engine, exactly as v0.2 was.
+    </p>
+  </section>
+
+  <section>
+    <h2>Share URL format — readable query params, not an opaque blob</h2>
+    <p>
+      A shared breakdown needs six values, all of which are already inputs the calculator already
+      collects or already fetched: the gross amount, the payment currency, the buyer market, the
+      frozen FX rate and its date (currency conversions only), and the fee-schedule date the
+      figures were computed under.
+    </p>
+    <pre>/breakdown?gross=100000&amp;cur=CAD&amp;mkt=OTHER&amp;fx=0.7312&amp;on=2026-08-10&amp;sched=2026-05-28</pre>
+    <table>
+      <thead><tr><th>Param</th><th>Meaning</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="num">gross</td><td>Gross paid, integer cents</td><td>Cents, not dollars — the engine is cents-native throughout; avoids locale/float parsing at the boundary</td></tr>
+        <tr><td class="num">cur</td><td><code>USD</code> | <code>CAD</code></td><td>The engine's <code>Currency</code> union</td></tr>
+        <tr><td class="num">mkt</td><td><code>UAE</code> | <code>EEA_UK</code> | <code>OTHER</code></td><td>The engine's <code>BuyerMarket</code> union</td></tr>
+        <tr><td class="num">fx</td><td>Base rate, USD per 1 unit of <code>cur</code></td><td>Omitted when <code>cur=USD</code>; frozen at link-creation time, never re-fetched</td></tr>
+        <tr><td class="num">on</td><td>Frankfurter's rate date</td><td>Omitted when <code>cur=USD</code></td></tr>
+        <tr><td class="num">sched</td><td><code>SCHEDULE_EFFECTIVE_FROM</code> at link-creation time</td><td>Lets the shared page detect and flag drift against today's schedule</td></tr>
+      </tbody>
+    </table>
+    <p>
+      This was weighed against an opaque encoded path segment
+      (<code>/breakdown/&lt;base64url-json&gt;</code>, closer to what <code>docs/plan.html</code>'s
+      original file-layout sketch named) and decided against, with the user, in favor of plain
+      query params: the payload here is roughly 60 characters, far too small for compression to buy
+      anything, and this project's entire premise is transparency — a client should be able to look
+      at the link and see, in plain text, exactly what numbers produced the breakdown they're
+      reading. An opaque blob works against that.
+    </p>
+    <div class="callout ok">
+      <p class="label">Decision — the FX rate is frozen, never re-fetched</p>
+      <p>
+        ECB reference rates move daily. If <code>/breakdown</code> called Frankfurter live on every
+        view, the link Ms. K sends Monday would show different numbers on Wednesday than the
+        invoice she actually issued — precisely the kind of silent mismatch this artifact exists to
+        prevent. Freezing the rate into the URL at creation time also keeps the shared page a pure,
+        zero-network render: no loading state, no fetch failure mode, nothing that can go stale
+        mid-view.
+      </p>
+    </div>
+    <div class="callout ok">
+      <p class="label">Decision — no PII, and no calculator "mode" in the URL</p>
+      <p>
+        The URL carries five numbers and two enums — no client name, no invoice reference, no free
+        text, satisfying <code>CONSTITUTION.md</code>'s "no PII is stored" non-goal by construction.
+        Calculator mode (quote vs. settle) is deliberately not encoded either: a client-facing
+        breakdown is always the settle view, and <code>quote()</code> already internally calls
+        <code>settle()</code> at the rounded-up invoice amount, so <code>breakdown.grossPaid.cents</code>
+        already <em>is</em> the invoice total regardless of which mode Ms. K used to get there. The
+        share link reads it straight off whichever breakdown is on screen.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>New module — <code>src/lib/share/breakdown-link.ts</code></h2>
+    <p>
+      Encoding and decoding the URL is the only genuinely new <em>logic</em> in v0.3 — everything
+      else downstream is reuse of existing, tested pieces. It belongs in its own pure module so it's
+      covered by the existing Vitest <code>environment: "node"</code> setup, with no jsdom and no
+      component-testing dependency added to the project.
+    </p>
+    <pre>export interface SharedBreakdown {
+  grossPaidCents: number;
+  payCurrency: Currency;
+  buyerMarket: BuyerMarket;
+  fx?: { rate: number; asOf: string };   // absent iff payCurrency === "USD"
+  scheduleAsOf: string;
+}
+
+export function encodeBreakdownParams(input: SharedBreakdown): string;   // → query string
+
+export function decodeBreakdownParams(
+  raw: Record&lt;string, string | string[] | undefined&gt;,
+): { ok: true; value: SharedBreakdown } | { ok: false; reason: string };</pre>
+    <div class="callout">
+      <p class="label">Finding — no runtime validator exists yet for these unions</p>
+      <p>
+        <code>Currency</code> and <code>BuyerMarket</code> are bare TypeScript unions in
+        <code>src/lib/fees/types.ts</code>, with no runtime narrowing anywhere in the codebase —
+        every existing call site controls its own values (a <code>&lt;select&gt;</code> in the
+        calculator UI). A query string is untrusted input, so <code>decodeBreakdownParams</code> has
+        to introduce the project's first runtime guards for these types:
+        <code>isCurrency</code> / <code>isBuyerMarket</code> predicates, plus rejection of a
+        non-integer or negative <code>gross</code>, a non-finite or non-positive <code>fx</code>,
+        malformed <code>on</code>/<code>sched</code> dates, <code>fx</code> present alongside
+        <code>cur=USD</code>, and <code>fx</code> missing alongside a non-USD <code>cur</code>. Every
+        rejection path gets a named Vitest case, following <code>engine.test.ts</code>'s existing
+        convention of test names that state the claim being checked.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>The shared page — <code>src/app/breakdown/page.tsx</code></h2>
+    <p>
+      An async Server Component — no <code>"use client"</code>, no hooks. Next.js 16 delivers
+      <code>searchParams</code> as a promise, and the generated <code>PageProps</code> helper types
+      the route by its literal path:
+    </p>
+    <pre>export default async function Page(props: PageProps&lt;'/breakdown'&gt;) {
+  const decoded = decodeBreakdownParams(await props.searchParams);
+  // …
+}</pre>
+    <p>
+      Reading <code>searchParams</code> opts the route into dynamic rendering, which is correct and
+      free here — the page does no I/O of its own; every number it needs is already sitting in the
+      URL.
+    </p>
+    <p>The page has exactly three render states:</p>
+    <ol class="exec">
+      <li><strong>Decode failure</strong> (missing, malformed, or tampered params) — a plain panel:
+      "This breakdown link is incomplete or damaged," with a link back to <code>/</code>. Never a
+      stack trace, never a hard crash — this is the one route a client, not Ms. K, might open.</li>
+      <li><strong>Engine throw</strong> — <code>settle()</code> already throws when the gross is
+      smaller than the fixed fee it would incur. Wrapped in a try/catch reusing the exact same
+      plain-language translation the calculator uses today (see below).</li>
+      <li><strong>Success</strong> — the ledger, an explainer, a disclaimer, and provenance,
+      composed as follows.</li>
+    </ol>
+    <p>Composition, top to bottom:</p>
+    <ul class="steps">
+      <li>Header: eyebrow "Payment breakdown," a <code>font-display</code> headline, one line
+      naming what the page is.</li>
+      <li><code>&lt;FeeBreakdown breakdown topLabel="YOU PAY" receivedLabel="AMOUNT RECEIVED" /&gt;</code>
+      — the existing, already server-safe, hook-free ledger component, reused as-is with
+      client-perspective labels.</li>
+      <li><strong>A 2–3 sentence explainer, conditional on whether an FX conversion applies</strong> —
+      naming both deductions and why they compound when there's a currency conversion, or just the
+      one when there isn't. This sentence is the actual point of the feature: it's the thing that
+      turns "why did I get less than I sent" into "here's exactly why," in the client's own words,
+      not fee jargon.</li>
+      <li>The estimate disclaimer, per <code>CONSTITUTION.md</code>'s "estimates are labeled as
+      estimates" design principle.</li>
+      <li>Provenance footer: fee-schedule date (already rendered by <code>FeeBreakdown</code>), plus
+      the FX rate and its date, read from the URL.</li>
+      <li><strong>Drift warning</strong>, shown only when the URL's <code>sched</code> no longer
+      matches the engine's current <code>SCHEDULE_EFFECTIVE_FROM</code> — see below.</li>
+      <li>A quiet link back to <code>/</code>.</li>
+    </ul>
+    <p>
+      The confidence badges <code>FeeBreakdown</code> already renders (<code>Observed</code> /
+      <code>Estimated</code> / <code>Unvalidated</code>) are kept exactly as-is on this page. On a
+      client-facing view, an "Estimated" badge on the FX line isn't noise to hide — it's the
+      honesty the constitution asks for, and it's already true today that no observed transaction
+      involves a currency conversion, so that line item is always estimated regardless of who's
+      looking at it.
+    </p>
+    <p>
+      The route also exports <code>generateMetadata</code>, returning a title like "Where your
+      payment went — USD 669.14 received of CAD 1,000.00," so a pasted link previews meaningfully in
+      chat and email clients. Generating an Open Graph image is out of scope for v0.3.
+    </p>
+  </section>
+
+  <section>
+    <h2>Immutability — what a stale link shows</h2>
+    <p>
+      A real failure mode: a client opens a link weeks after Ms. K sent it, by which point
+      <code>schedule.ts</code>'s fee figures have been corrected (as they were once already, from
+      the previously-wrong 4.40% to the observed 4.625%). Three options were weighed with the user:
+    </p>
+    <div class="callout ok">
+      <p class="label">Decision — stamp the schedule date, recompute, warn on drift</p>
+      <p>
+        The URL carries <code>sched</code>, the fee-schedule's <code>effectiveFrom</code> date at
+        link-creation time. The page always recomputes via the <em>current</em>
+        <code>settle()</code> — it never freezes the rate or fixed fee themselves into the URL, so
+        the URL can't drift out of sync with the engine's schedule the way a fully-frozen link
+        could. If the stamped <code>sched</code> no longer matches
+        <code>SCHEDULE_EFFECTIVE_FROM</code>, the page adds one visible note: figures were computed
+        under the schedule as of that earlier date, and PayPal's rates have since been updated, so
+        the numbers shown reflect the current schedule. Honest about drift, without ever showing a
+        client numbers Ms. K knows to be outdated.
+      </p>
+    </div>
+    <p>
+      Rejected: silently recomputing with no warning (an old link could then quietly disagree with
+      the figure Ms. K actually quoted, with no indication why) and freezing every fee constant into
+      the URL (most reproducible, but then the URL carries values that can drift out of sync with
+      <code>schedule.ts</code>, and the shared page stops exercising the real schedule at all).
+    </p>
+  </section>
+
+  <section>
+    <h2>Small, surgical changes to existing files</h2>
+    <p>Two existing files need a narrow change to support reuse — nothing else in either is touched.</p>
+    <table class="files-table">
+      <thead><tr><th>File</th><th>Change</th></tr></thead>
+      <tbody>
+        <tr><td>src/components/fee-breakdown.tsx</td><td>Add an optional <code>receivedLabel?: string</code> prop (default <code>"YOU RECEIVE"</code>, preserving today's calculator behavior exactly), threaded into the existing result row. Nothing else in this file changes.</td></tr>
+        <tr><td>src/lib/fees/errors.ts <em>(new)</em></td><td>Move <code>describeCalculationError</code> out of <code>src/app/page.tsx</code> verbatim, so <code>/breakdown</code> can translate the same engine errors the same way. Both call sites import it; the local copy in <code>page.tsx</code> is removed as an orphan of this move, not an opportunistic refactor.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>The share affordance — <code>src/components/share-link.tsx</code></h2>
+    <p>
+      A small client component rendered on <code>/</code> only once a calculation has succeeded. It
+      builds the share URL from <code>encodeBreakdownParams</code> plus
+      <code>window.location.origin</code>, then offers:
+    </p>
+    <ul class="steps">
+      <li>A "Copy link to share with your client" button, using <code>navigator.clipboard</code>,
+      with a brief "Copied" confirmation state.</li>
+      <li>A read-only text input showing the URL underneath, so the link is still obtainable if the
+      clipboard API is blocked.</li>
+    </ul>
+    <div class="callout ok">
+      <p class="label">Decision — hand-roll, don't reintroduce shadcn's Button</p>
+      <p>
+        Commit <code>94a3834</code> deliberately removed the unused shadcn <code>Button</code>
+        component. This affordance follows <code>src/components/mode-toggle.tsx</code>'s existing
+        precedent instead — a plain <code>&lt;button&gt;</code> styled directly against the project's
+        existing design tokens.
+      </p>
+    </div>
+    <p>
+      <code>src/app/page.tsx</code> gains one addition: <code>&lt;ShareLink&gt;</code> rendered
+      inside the existing successful-calculation branch, passing the current breakdown and FX state.
+      No other change to that file beyond the error-helper move above.
+    </p>
+  </section>
+
+  <section>
+    <h2>Files to create</h2>
+    <table class="files-table">
+      <thead><tr><th>Path</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>src/lib/share/breakdown-link.ts</td><td>Encode/decode the share URL's query params, with runtime validation of untrusted input</td></tr>
+        <tr><td>src/lib/share/breakdown-link.test.ts</td><td>Round-trip coverage plus every rejection path</td></tr>
+        <tr><td>src/app/breakdown/page.tsx</td><td>The shared, read-only client-facing breakdown page</td></tr>
+        <tr><td>src/lib/fees/errors.ts</td><td><code>describeCalculationError</code>, moved out of <code>page.tsx</code> so both routes share it</td></tr>
+        <tr><td>src/components/share-link.tsx</td><td>Copy-link affordance on the calculator</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Modified: <code>src/components/fee-breakdown.tsx</code> (new optional prop) and
+      <code>src/app/page.tsx</code> (render <code>&lt;ShareLink&gt;</code>, drop the moved helper).
+      Unchanged: <code>src/lib/fees/{types,money,schedule,engine}.ts</code> — v0.3 adds no new fee
+      math.
+    </p>
+  </section>
+
+  <section>
+    <h2>Verification</h2>
+    <ul class="steps">
+      <li><code>pnpm test</code> — the new <code>breakdown-link.test.ts</code> green alongside the
+      existing 22 tests, following <code>engine.test.ts</code>'s conventions (claim-shaped
+      <code>describe</code> names, inline literal fixtures, no factories).</li>
+      <li><code>pnpm typecheck</code> and <code>pnpm build</code> clean.
+      <code>PageProps&lt;'/breakdown'&gt;</code> only resolves after a
+      <code>next dev</code>/<code>next build</code>/<code>next typegen</code> run has generated it —
+      run the build before trusting the typecheck.</li>
+      <li><code>pnpm dev</code>, then the <code>claude-for-safari</code> skill (new tab, screenshot,
+      close the tab, delete screenshots when done) against:
+        <ul>
+          <li>a USD → USD link (no FX line, single-phase ledger)</li>
+          <li>a CAD → USD link (two-phase ledger, FX line, the frozen rate shown)</li>
+          <li>a tampered URL — unknown <code>cur</code>, missing <code>gross</code> — rendering the
+          friendly failure panel, not a crash</li>
+          <li>a gross below the fixed fee, rendering the translated engine error</li>
+          <li>a deliberately stale <code>sched</code>, rendering the drift warning</li>
+          <li>the copy button on <code>/</code> in both quote and settle mode — paste the resulting
+          link and confirm the shared page reproduces the same figures the calculator showed</li>
+        </ul>
+      </li>
+      <li>Confirm <code>git status</code> is clean of screenshots and temp files before pushing, per
+      <code>CLAUDE.md</code> § "Visual verification and debugging."</li>
+    </ul>
+  </section>
+
+  <footer class="sources">
+    <strong>Sources</strong>
+    <ul>
+      <li><a href="CONSTITUTION.md">docs/CONSTITUTION.md</a> — roadmap, "Data storage" row of the tech-stack table, design principles, non-goals</li>
+      <li><a href="plan.html">docs/plan.html</a> — original ledger design direction, reused by <code>fee-breakdown.tsx</code> and by this plan without modification</li>
+      <li><a href="plan-v0.2.html">docs/plan-v0.2.html</a> — the calculator UI this plan extends with a share affordance</li>
+      <li><code>src/lib/fees/{types,engine}.ts</code>, <code>src/components/fee-breakdown.tsx</code>, <code>src/app/page.tsx</code> — the implemented, tested v0.2 surfaces this plan reuses without modifying their core logic</li>
+      <li>Next.js docs, <code>searchParams</code> / <code>PageProps</code> — <code>node_modules/next/dist/docs/01-app/01-getting-started/03-layouts-and-pages.md</code>, consulted directly per this repo's "This is NOT the Next.js you know" convention</li>
+    </ul>
+  </footer>
+
+</div>
+</body>
+</html>

@@ -7,6 +7,98 @@ the substantive changes.
 
 ## Unreleased
 
+- Added a "Running locally" section to `README.md`: `pnpm install` /
+  `pnpm dev`, a note that no environment variables are required (the
+  Frankfurter FX lookup needs no API key), and the other `pnpm` commands
+  already listed in `CLAUDE.md`'s Commands section.
+- Code review of the v0.3 diff found and fixed 5 issues (`/code-review
+  --fix`); typecheck/tests/build verified green before and after:
+  - `src/components/share-link.tsx` — the clipboard write had no
+    try/catch, so a blocked `navigator.clipboard.writeText` (insecure
+    context, denied permission) threw an unhandled rejection and the
+    button silently never showed "Copied"; wrapped in try/catch. The
+    `useEffect` resetting `copied` depended on the whole `shared` object,
+    which the calculator passes as a fresh literal every render, so the
+    effect re-fired (snapping "Copied" back prematurely) on any unrelated
+    parent re-render, e.g. an in-flight FX fetch resolving mid-copy;
+    narrowed the dependency array to the individual encoded fields.
+  - `src/lib/share/breakdown-link.ts` — `isValidDateString` used regex +
+    `Date.parse`, but `Date.parse` silently rolls an out-of-range day into
+    the next month (`"2026-02-30"` → 2026-03-02) instead of rejecting it,
+    so a link with a nonexistent calendar date in `sched` or `on` decoded
+    successfully and could render a drift warning showing the literal
+    nonsense date; now re-serializes the parsed date and requires an exact
+    match. Also, `gross === undefined` was the only "missing" check, but
+    `Number("")` is `0`, a valid non-negative integer, so an empty/
+    whitespace `gross` param was silently accepted as $0 instead of
+    rejected as malformed; added an explicit empty-string check.
+  - `src/app/breakdown/page.tsx` — `resolve()` (decode + `settle()`) was
+    called separately from both `generateMetadata` and the page component,
+    redoing the same work twice per request; wrapped in React's `cache()`.
+  - `src/lib/share/breakdown-link.test.ts` — 3 new regression tests for
+    the above (empty gross, invalid `sched` date, invalid `on` date).
+  - Not fixed, flagged only: `CURRENCIES`/`BUYER_MARKETS` in
+    `breakdown-link.ts` hand-duplicate the `Currency`/`BuyerMarket` unions
+    from `types.ts` with no compile-time exhaustiveness check — harmless
+    today, but v0.4's broader currency coverage could add a `Currency`
+    member without this file being updated to match.
+- Implemented v0.3: the shareable, URL-encoded client-facing breakdown, per
+  `docs/plan-v0.3.html`.
+  - `src/lib/share/breakdown-link.ts` — pure `encodeBreakdownParams` /
+    `decodeBreakdownParams`, the only new logic in this release. Introduces
+    the project's first runtime validators for `Currency`/`BuyerMarket`
+    (previously bare TS unions with no runtime guard anywhere), since a
+    query string is untrusted input. 17 new Vitest cases: round-trip for
+    both USD and CAD, and every rejection path (missing/malformed/tampered
+    params, `fx`/`on` present or absent inconsistently with `cur`).
+  - `src/app/breakdown/page.tsx` — a new async Server Component route,
+    reading Next.js 16's `searchParams` promise. Reuses `settle()` and
+    `<FeeBreakdown>` unmodified. Three render states: a friendly panel on a
+    malformed/tampered link (never a crash), the calculator's existing
+    plain-language engine-error translation on a gross below the fixed fee,
+    and on success, the ledger plus a 2–3 sentence plain-language explainer
+    (conditioned on whether an FX conversion applies), the estimate
+    disclaimer, and a `generateMetadata` title so a pasted link previews
+    meaningfully in chat/email.
+  - The FX rate is frozen into the share URL at link-creation time and
+    never re-fetched by the shared page — otherwise a link sent Monday
+    could show different numbers by Wednesday as ECB rates move, silently
+    disagreeing with the invoice actually issued. The URL also stamps the
+    fee schedule's `effectiveFrom` date; the page always recomputes against
+    the *current* schedule (never freezes the rate/fixed fee themselves)
+    and shows a visible drift warning if that stamp no longer matches,
+    rather than silently showing numbers Ms. K knows to be outdated or
+    silently disagreeing with what she quoted.
+  - Query params, not an opaque encoded path segment: the payload is ~60
+    characters (five numbers, two enums, no PII), too small for
+    compression to buy anything, and a client should be able to read in
+    plain text what numbers produced the breakdown they're looking at —
+    an opaque blob works against this project's transparency premise.
+  - `src/components/fee-breakdown.tsx` — added an optional `receivedLabel`
+    prop (default `"YOU RECEIVE"`, unchanged for the calculator) so the
+    shared page can relabel the final row `"AMOUNT RECEIVED"` for a client
+    audience. Nothing else in the component changed.
+  - `src/lib/fees/errors.ts` — `describeCalculationError` moved out of
+    `src/app/page.tsx` verbatim so both routes translate the engine's
+    developer-facing exception messages into plain language the same way.
+  - `src/components/share-link.tsx` — a copy-link affordance on the
+    calculator, shown once a calculation succeeds. Hand-rolled against the
+    existing design tokens rather than reintroducing shadcn's `Button`
+    (deliberately removed in `94a3834`). Reads the invoice/settle amount,
+    buyer market, and FX state already on screen — calculator mode itself
+    is not encoded in the URL, since `quote()` already routes through
+    `settle()` internally, so `breakdown.grossPaid.cents` is the invoice
+    total regardless of which mode produced it.
+  - `src/lib/fees/{types,money,schedule,engine}.ts` untouched — v0.3 adds
+    no new fee math.
+  - 39/39 tests green (22 existing + 17 new), typecheck clean, production
+    build succeeds; `/breakdown` correctly builds as a dynamic route.
+    Visually verified in Safari: USD→USD (single-phase ledger), CAD→USD
+    (two-phase ledger with both confidence badges), a tampered URL, a
+    gross below the fixed fee, a deliberately stale `sched` (drift
+    warning), and the copy-link flow in both quote and settle mode,
+    confirming the shared page reproduces the exact figures the
+    calculator showed.
 - Added `CLAUDE.md` § "Vercel account": always use the `krishkshir`
   account (team `shri-kant`) for Vercel actions, matching the existing
   "GitHub account" section. Found while deploying v0.2 — the `vercel`

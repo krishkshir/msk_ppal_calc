@@ -11,3 +11,22 @@ Original request:
 ## Current tool
 
 <https://www.designhill.com/tools/paypal-fee-calculator>
+
+## Running locally
+
+Requires Node.js and [pnpm](https://pnpm.io).
+
+```
+pnpm install
+pnpm dev
+```
+
+The app runs at <http://localhost:3000>. No environment variables are
+required — the FX rate lookup (Frankfurter) needs no API key.
+
+Other commands:
+
+- `pnpm build` — production build
+- `pnpm test` — run the test suite once
+- `pnpm test:watch` — run tests in watch mode
+- `pnpm typecheck` — type-check without emitting
