@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CalculatorForm } from "@/components/calculator-form";
 import { FeeBreakdown } from "@/components/fee-breakdown";
@@ -131,9 +132,18 @@ export function Calculator({ activeModel }: CalculatorProps) {
   return (
     <main className="mx-auto max-w-2xl px-6 py-16">
       <header className="mb-10 border-b-2 border-ink pb-6">
-        <p className="font-mono text-xs tracking-[0.12em] text-caption uppercase">
-          PayPal fee calculator
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <p className="font-mono text-xs tracking-[0.12em] text-caption uppercase">
+            PayPal fee calculator
+          </p>
+          {/* Ms. K's own tooling, not a public route (unlike /breakdown, which stays free of internal links) — see docs/plan-v0.5.html "Routes". */}
+          <Link
+            href="/ledger"
+            className="shrink-0 font-mono text-xs tracking-[0.1em] text-teal uppercase underline underline-offset-4 hover:text-teal/80"
+          >
+            Ledger →
+          </Link>
+        </div>
         <h1 className="mt-2 font-display text-3xl text-ink">
           What actually arrives, after PayPal&apos;s cut
         </h1>
