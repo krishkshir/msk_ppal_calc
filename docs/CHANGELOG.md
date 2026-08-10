@@ -22,8 +22,8 @@ the substantive changes.
     published `$0.30`) is `"observed"`; every other currency is PayPal's
     published figure, `"unvalidated"`.
   - `src/lib/fees/markets.ts` (new) — `BuyerMarket` derived from
-    `BUYER_MARKETS`; a `COUNTRIES` table (46 entries: UAE, the 31-country
-    EEA+UK set, 13 representative countries for the remaining supported
+    `BUYER_MARKETS`; a `COUNTRIES` table (47 entries: UAE, the 31-country
+    EEA+UK set, 14 representative countries for the remaining supported
     currencies, and an "Other / not listed" catch-all) with
     `marketForCountry()`. Deliberately includes Switzerland mapped to
     `OTHER`, not `EEA_UK` — it's EFTA, not EEA, exactly the

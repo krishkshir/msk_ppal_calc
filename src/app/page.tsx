@@ -33,6 +33,18 @@ export default function Home() {
 
   const buyerMarket = marketForCountry(country);
 
+  // Computed client-side after mount, not inline during render: this page
+  // is statically generated, so a bare `isScheduleReviewOverdue(new Date())`
+  // in the render body would bake in whatever was true at build time and
+  // never update until the next deploy — plus it would risk a hydration
+  // mismatch if the review-interval boundary falls between server render
+  // and client hydration. Defaulting to false until the effect runs means
+  // the banner only ever appears based on the visitor's actual clock.
+  const [scheduleReviewOverdue, setScheduleReviewOverdue] = useState(false);
+  useEffect(() => {
+    setScheduleReviewOverdue(isScheduleReviewOverdue(new Date()));
+  }, []);
+
   useEffect(() => {
     if (payCurrency === ACCOUNT_CURRENCY) {
       setFx({ status: "not-needed" });
@@ -115,7 +127,7 @@ export default function Home() {
         </p>
       </header>
 
-      {isScheduleReviewOverdue(new Date()) ? (
+      {scheduleReviewOverdue ? (
         <p className="mb-8 rounded-md border border-brass/60 bg-brass/10 px-4 py-2 font-mono text-xs text-brass">
           Fee schedule review is overdue — last checked against PayPal&apos;s published rates on{" "}
           {SCHEDULE_LAST_REVIEWED_ON}, more than {REVIEW_INTERVAL_DAYS} days ago. Figures below may
