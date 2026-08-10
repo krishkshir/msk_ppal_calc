@@ -11,14 +11,26 @@ previously-wrong fee constants, the designhill tiering-bug check, and the
 README's ground-truth-free Canadian scenario. See `docs/plan-v0.1.html` for
 the implementation plan this was built from.
 
-There is still no Next.js app, no UI, and no FX network call — those are
-v0.2+ per the roadmap in `docs/CONSTITUTION.md`. `src/lib/fx/frankfurter.ts`
-does not exist yet; `fxBaseRateToUSD` is an injected parameter on `settle`/`quote`
-until it does.
+v0.2 is implemented: a Next.js (App Router) + Tailwind v4 + shadcn/ui
+calculator at `src/app/page.tsx`, wired to the unmodified v0.1 engine. Both
+directions (quote/settle) via a mode toggle, quote first. No
+trailing-monthly-volume input — merchant-tier ineligibility is resolved, so
+it's hardcoded to the $0–$3,000 tier. `src/lib/fx/frankfurter.ts` now exists:
+an isolated fetch (never imported by `engine.ts`) supplying `fxBaseRateToUSD`
+for CAD. See `docs/plan-v0.2.html` for the implementation plan this was
+built from. Deployed — `vercel link` connected the GitHub repo
+(`krishkshir/msk_ppal_calc`) to a new Vercel project
+(`shri-kant/msk-ppal-calc`), live at `msk-ppal-calc.vercel.app`.
+
+v0.3 (the shareable, URL-encoded client-facing breakdown) and v0.4 (broader
+currency/buyer-market coverage) are not built yet, per the roadmap in
+`docs/CONSTITUTION.md`.
 
 Commands (via `pnpm`):
 
 - `pnpm install` — install dependencies
+- `pnpm dev` — run the Next.js dev server
+- `pnpm build` — production build
 - `pnpm test` — run the Vitest suite once
 - `pnpm test:watch` — run Vitest in watch mode
 - `pnpm typecheck` — `tsc --noEmit`
@@ -94,22 +106,24 @@ doc-only and fee-model-correction changes, not just code.
   silently resolve either while implementing — carry the "estimate"
   framing into the UI.
 
-## Planned stack (decided, not yet installed)
+## Stack
 
-Per `docs/CONSTITUTION.md`: Next.js (App Router) + TypeScript, deployed to
-Vercel; Tailwind + shadcn/ui; Vitest for the fee engine; FX base rates from
-the Frankfurter API (no key required); no database — shareable breakdowns
-encode their inputs in the URL. No PayPal API integration in v1 (PayPal
-exposes actual fees per completed transaction but no endpoint for the fee
-*schedule* itself, so a hand-curated, dated table is required regardless).
+Per `docs/CONSTITUTION.md`, now installed: Next.js (App Router) + TypeScript,
+deployed to Vercel; Tailwind v4 + shadcn/ui; Vitest for the fee engine and
+the FX fetch; FX base rates from the Frankfurter API (no key required). No
+database yet — the shareable-breakdown URL encoding is v0.3. No PayPal API
+integration in v1 (PayPal exposes actual fees per completed transaction but
+no endpoint for the fee *schedule* itself, so a hand-curated, dated table is
+required regardless).
 
 ## Visual verification and debugging
 
-Once there's a UI to check (the Next.js app, or `docs/plan.html` in the
-meantime), use the `claude-for-safari` skill to load a page in the user's
-real Safari and screenshot it for visual verification — confirming a
-rendered layout, checking a fee-breakdown UI matches the model, debugging
-a CSS issue, etc. Prefer this over asking the user to manually check.
+For the Next.js app (`pnpm dev`, or a Vercel deployment URL) or a static doc
+like `docs/plan.html`, use the `claude-for-safari` skill to load the page in
+the user's real Safari and screenshot it for visual verification —
+confirming a rendered layout, checking a fee-breakdown UI matches the
+model, debugging a CSS issue, etc. Prefer this over asking the user to
+manually check.
 
 - Open the target in a **new tab**, not the user's current tab — don't
   navigate away from tabs they already have open. Close that tab when
@@ -152,8 +166,39 @@ than an auth error. Before any `gh` write action, check the active account
 with `gh auth status` and, if it isn't `krishkshir`, switch with `gh auth
 switch --user krishkshir` first.
 
+## Vercel account
+
+Always use the **`krishkshir`** Vercel account (team `shri-kant`) for any
+Vercel action — `vercel deploy`, `vercel link`, the Vercel MCP plugin
+tools, etc. Before any Vercel action, check with `vercel whoami`. Unlike
+`gh`, there's no guarantee a second session is already stored locally: the
+first time this came up, only a different (wrong) account was
+authenticated for both the CLI and the MCP plugin, and there was no
+`vercel auth switch` equivalent — the user had to run `vercel login`
+themselves (interactive OAuth/email; can't be completed non-interactively)
+before anything could proceed. Ask them to do that if `whoami` doesn't say
+`krishkshir`.
+
+A brand-new Vercel project's *first* deployment lands on `production` even
+via a plain `vercel deploy` with no `--prod` flag — there's no preview
+alias yet to default to. That's standard Vercel behavior, not a mistake,
+but it means the usual "confirm before deploying to production" caution
+doesn't get a chance to trigger on a project's very first deploy — flag it
+to the user after the fact if it happens, same as any other production
+deploy would require confirmation for.
+
 ## Non-goals
 
 Not a payment processor, not bookkeeping/accounting software, not tax or
 VAT handling, not financial or legal advice. Outputs are estimates for
 planning purposes.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
