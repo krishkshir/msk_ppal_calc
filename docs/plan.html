@@ -302,12 +302,26 @@
       the table is retained for completeness, but her practical rate is always the $0–$3,000 row.
     </p>
 
+    <h3>Buyer-market classification (v0.4)</h3>
+    <p>
+      The three market buckets above are PayPal's, not ours — but asking Ms. K to classify a client
+      into one of them directly invites mistakes, since the bucket boundaries don't match intuition.
+      The calculator instead asks for the client's <strong>country</strong> and maps it to the correct
+      bucket in code (<code>src/lib/fees/markets.ts</code>), with the resolved bucket shown alongside
+      the picker so the mapping stays auditable. The case this exists to prevent:
+      <strong>Switzerland is EFTA, not EEA</strong>, so a Swiss client is <code>OTHER</code> (4.625%),
+      not <code>EEA_UK</code> (4.69%) — an easy mistake to make by hand that a country-name picker
+      resolves by construction.
+    </p>
+
     <h3>Fixed fee by currency (published)</h3>
     <p>
       Sourced from PayPal's business fees page
       (<code>paypal.com/ae/business/paypal-business-fees</code>, last updated 2026-05-28), confirmed
-      with the user as the source of truth for fixed fees in currencies other than USD (see "Open
-      questions" below):
+      with the user as the source of truth for fixed fees in currencies other than USD. As of v0.4,
+      this table is implemented directly in <code>src/lib/fees/currencies.ts</code> — the fixed-fee
+      component of the commercial fee is looked up by currency, not derived from the USD figure via
+      the FX rate as v0.1–v0.3 did (see "Open questions" below, question 1, now resolved):
     </p>
     <table>
       <thead>
@@ -335,18 +349,26 @@
         <tr><td>Brazilian real (BRL)</td><td class="num">0.60</td></tr>
         <tr><td>Malaysian ringgit (MYR)</td><td class="num">2.00</td></tr>
         <tr><td>Philippine peso (PHP)</td><td class="num">15.00</td></tr>
-        <tr><td>New Taiwan dollar (TWD)</td><td class="num">10.00</td></tr>
+        <tr><td>New Taiwan dollar (TWD)</td><td class="num">10.00 <em>(not supported — see note below)</em></td></tr>
         <tr><td>Thai baht (THB)</td><td class="num">11.00</td></tr>
-        <tr><td>Russian ruble (RUB)</td><td class="num">10.00</td></tr>
+        <tr><td>Russian ruble (RUB)</td><td class="num">10.00 <em>(not supported — see note below)</em></td></tr>
       </tbody>
     </table>
     <p>
       Given the USD discrepancy above (published $0.30, observed $0.31 — a +3.3% gap), treat every
       other currency's figure here as similarly liable to be slightly off from what a real
-      transaction would show. This table is a starting point for <code>schedule.ts</code> (v0.4
-      work, per the roadmap), not a substitute for observation — none of these non-USD figures are
-      validated against a real transaction yet.
+      transaction would show. None of these non-USD figures are validated against a real transaction
+      yet.
     </p>
+    <div class="callout">
+      <p class="label">Finding — TWD and RUB are not settleable or quotable</p>
+      <p>
+        Despite appearing in PayPal's table, <a href="https://frankfurter.dev/">Frankfurter/ECB</a>,
+        this project's only FX rate source, has no rate for either currency — so there is no way to
+        convert a TWD or RUB payment to USD regardless of the fixed fee being known. The other 22
+        currencies in this table are implemented in <code>src/lib/fees/currencies.ts</code>.
+      </p>
+    </div>
 
     <h3>Reconciling with Ms. K's current tool</h3>
     <p>
@@ -479,9 +501,9 @@ function setPapPalCommissionToolsPg(){
 
     <h3>Open questions the document must record honestly</h3>
     <p>
-      Two of the four questions originally listed here are now resolved by the user. Per this
-      project's practice of keeping resolutions and reversals in the document rather than deleting
-      them, they're recorded below rather than silently dropped.
+      Three of the four questions originally listed here are now resolved. Per this project's
+      practice of keeping resolutions and reversals in the document rather than deleting them,
+      they're recorded below rather than silently dropped.
     </p>
     <p><strong>Resolved, confirmed with the user:</strong></p>
     <ul>
@@ -492,16 +514,20 @@ function setPapPalCommissionToolsPg(){
       tiers hold is no longer relevant to her account — her practical rate is always the $0–$3,000
       tier (4.625% + $0.31, observed), regardless of volume.</li>
     </ul>
-    <p><strong>Still open:</strong> these materially change the math above and remain unresolved.
-    <code>CONSTITUTION.md</code> will list them as open, not guess at them:</p>
+    <p><strong>Resolved in v0.4:</strong></p>
     <ol class="open-questions">
       <li><strong>The fixed-fee table for currencies other than USD.</strong> Source of truth
       confirmed with the user:
       <a href="https://www.paypal.com/ae/business/paypal-business-fees">paypal.com/ae/business/paypal-business-fees</a>
-      — see "Fixed fee by currency (published)" above for the extracted table. Filling
-      <code>schedule.ts</code> in from it is v0.4 work, per the roadmap; every figure in that table
-      is unvalidated by observation, the same gap that put the USD figure a cent off ($0.30
-      published vs. $0.31 observed).</li>
+      — see "Fixed fee by currency (published)" above. <code>src/lib/fees/currencies.ts</code> now
+      looks the fixed fee up directly by currency, rather than deriving it from the USD figure via
+      the FX rate as v0.1–v0.3 did. This resolves how the fee is <em>sourced</em>, not how it's
+      <em>validated</em> — every figure except USD's remains unvalidated; only a real non-USD
+      transaction can change that (see <code>docs/FEE-TABLE-REFRESH.md</code>, step 3).</li>
+    </ol>
+    <p><strong>Still open:</strong> this materially changes the math above and remains unresolved.
+    <code>CONSTITUTION.md</code> lists it as open, not a guess:</p>
+    <ol class="open-questions">
       <li><strong>Why does the observed rate (~4.62%) not match either of PayPal's published
       figures?</strong> It's about 0.22 percentage points above the published "all other markets"
       rate (4.40%), and now too low to be the EEA/UK rate (4.69%) — which wouldn't apply to
@@ -615,7 +641,7 @@ USD    662.14                   ████████████</pre>
       <li><span class="ver">v0.1</span> fee engine + test suite; named regression cases T1 (83.00→78.85), T2 (101.20→96.21), T3 (120.00→114.14); README's Canadian scenario included but flagged as having no ground truth of its own</li>
       <li><span class="ver">v0.2</span> calculator UI, both directions</li>
       <li><span class="ver">v0.3</span> shareable client breakdown</li>
-      <li><span class="ver">v0.4</span> fee-table refresh process, broader currency coverage</li>
+      <li><span class="ver">v0.4</span> fee-table refresh workflow; currency coverage widened from 2 to 22 (incl. JPY); country picker for buyer market; open question 1 resolved</li>
       <li><span class="ver">v1.0+</span> optional PayPal API reconciliation</li>
     </ul>
 
@@ -654,7 +680,8 @@ USD    662.14                   ████████████</pre>
     <strong>Sources</strong>
     <ul>
       <li><a href="https://www.paypal.com/ae/webapps/mpp/merchant-fees">PayPal UAE merchant fees</a> — primary, published source, but its "all other markets" rate (4.40%) is now contradicted by three observed transactions (see "Observed transactions" above); its $0.30 fixed fee is individually plausible but not jointly consistent with the observed 4.625% rate — the observed pair is $0.31</li>
-      <li><a href="https://www.paypal.com/ae/business/paypal-business-fees">PayPal Business fees (AE)</a> — primary source for the fixed-fee-by-currency table (see "Fixed fee by currency (published)" above), last updated 2026-05-28. Confirmed with the user as the source of truth for non-USD fixed fees; not yet validated against any real non-USD transaction</li>
+      <li><a href="https://www.paypal.com/ae/business/paypal-business-fees">PayPal Business fees (AE)</a> — primary source for the fixed-fee-by-currency table (see "Fixed fee by currency (published)" above), last updated 2026-05-28. Confirmed with the user as the source of truth for non-USD fixed fees; not yet validated against any real non-USD transaction. Implemented in <code>src/lib/fees/currencies.ts</code> as of v0.4</li>
+      <li><a href="https://frankfurter.dev/">Frankfurter API currency list</a> — determines which of PayPal's published currencies this project can actually settle or quote in; TWD and RUB are in PayPal's table but not Frankfurter's, so both are excluded</li>
       <li><a href="https://www.designhill.com/tools/paypal-fee-calculator">designhill.com PayPal fee calculator</a> — secondary, reconciliation source. Page source read directly to confirm the volume-tier table; two defects identified and corrected rather than reproduced. Its lowest tier's rate has since also been refuted by observed data; the other three tiers are now moot (Ms. K doesn't qualify for merchant-tier rates — see "Open questions" above). Not authoritative on its own</li>
       <li>Real transaction records (T1, T2, T3) — provided directly by the user; the project's only ground-truth source so far</li>
       <li><a href="https://github.com/paypal/paypal-typescript-server-sdk">PayPal TypeScript Server SDK — seller receivable breakdown</a> — via context7</li>

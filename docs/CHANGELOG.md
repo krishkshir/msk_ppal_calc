@@ -7,6 +7,162 @@ the substantive changes.
 
 ## Unreleased
 
+- Fixed a security regression in the share-link staleness fix below, found
+  by a follow-up code review run against it before it was pushed further.
+  The staleness fix's first version rendered the frozen `fee`/`net`/`spread`
+  figures directly whenever they disagreed with a fresh recomputation,
+  captioned as "what this link originally showed" — but those are unsigned,
+  attacker-editable query params with no cryptographic link to a genuine
+  past `settle()` call, so anyone holding a link's URL could set
+  `fee=1&net=99999` and have the page display exactly that, vouched for as
+  genuine. Strictly worse than the bug being fixed, which could only ever
+  show a *real* `settle()` output for some input, never an arbitrary
+  fabricated number. See `docs/plan-share-link-drift.html` § "Trust
+  boundary" for the corrected design.
+  - `src/lib/share/drift.ts` — `applyFrozenFigures()` and
+    `breakdownFromFrozenOnly()` removed entirely; only `hasFrozenDrift()`
+    remains, used purely as a signal for whether to warn, never as a
+    source of displayed data.
+  - `src/app/breakdown/page.tsx` — `resolve()` always returns the fresh
+    `settle()` recomputation as `breakdown`; `hasFrozenDrift()` only sets a
+    `drifted` flag. If `settle()` throws, the page shows the same
+    `engine-error` it always has, regardless of whether frozen figures are
+    present — there's no recomputation to compare them against in that
+    case, so there's no way to establish they're genuine before falling
+    back to them. The drift warning's copy no longer claims to show "what
+    this link originally showed" (it doesn't); it now says the original
+    amount "may have differed from what's shown above."
+  - `src/lib/share/drift.test.ts` — tests for the removed functions
+    dropped; added a test asserting `hasFrozenDrift()` correctly flags a
+    forged trio (`fee=1&net=99999`) as drifted, confirming detection works
+    without needing or claiming provenance.
+  - Accepted residual, documented rather than hidden: a forged frozen trio
+    can still suppress a genuine drift warning (by matching the current
+    recomputation) or cause a spurious one — but can never make the page
+    display a fabricated amount. Closing that residual would need signing
+    infrastructure (a server-side secret, an API route) judged
+    disproportionate to what a "not financial or legal advice" estimator
+    warrants.
+- Fixed the share-link staleness-check bug found by the v0.4 code review
+  (deliberately left unfixed by that automated pass, since the correct
+  repair was a design decision — see `docs/plan-share-link-drift.html`).
+  `resolved.shared.scheduleAsOf !== SCHEDULE_EFFECTIVE_FROM` was the shared
+  page's only drift signal, but v0.4 changed the CAD fixed fee from
+  FX-derived to a flat lookup without touching `SCHEDULE_EFFECTIVE_FROM` at
+  all — a pre-v0.4 CAD link silently rendered a different `AMOUNT RECEIVED`
+  (66,809 → 66,818 minor units) with no warning.
+  - `src/lib/share/breakdown-link.ts` — `SharedBreakdown` gains an optional
+    `frozen: { feeMinorUnits, netMinorUnits, spreadMinorUnits? }`, encoded
+    as new `fee`/`net`/`spread` query params. Validated atomically (`fee`
+    and `net` travel together; `spread` is coupled to `cur` exactly as
+    `fx`/`on` already are) so a partially-tampered link fails to decode
+    rather than half-verifying. Absent on links created before this fix —
+    fully backward compatible, the existing v0.3-era round-trip test is
+    untouched.
+  - `src/lib/share/drift.ts` (new) — `hasFrozenDrift()` compares a fresh
+    `settle()` recomputation against the frozen trio; `applyFrozenFigures()`
+    overrides a recomputed `Breakdown`'s amounts (and `ratesAsOf`) with the
+    frozen ones on drift, so the client sees what they were actually
+    quoted, not a number that never applied to them, and the footer's
+    schedule date stops contradicting the warning above it (a v0.3-era
+    bug: the footer always printed the *current* schedule date even when
+    showing a stale link's recomputed figures);
+    `breakdownFromFrozenOnly()` synthesizes a full `Breakdown` from the
+    frozen figures alone, for the case where the current engine can no
+    longer accept the link's inputs at all — a shared link never becomes
+    completely unrenderable just because a future engine change rejects
+    its inputs.
+  - `src/app/breakdown/page.tsx` — `resolve()` now compares recomputed vs.
+    frozen figures and renders accordingly; the legacy `scheduleAsOf`
+    fallback (for pre-fix links, which carry no frozen figures) is kept
+    but reworded to be direction-agnostic — it previously said "PayPal's
+    rates have since been updated" even when `scheduleAsOf` was *newer*
+    than the deployed schedule.
+  - `src/app/page.tsx` — `ShareLink`'s `shared` prop now includes the
+    frozen trio, sourced from the same `calculation.breakdown` already
+    used to build the rest of the link.
+  - `src/lib/share/drift.test.ts` (new), `src/lib/share/breakdown-link.test.ts`,
+    `src/lib/fees/engine.test.ts` — new round-trip, atomicity, and
+    coupling cases for the frozen group; a regression test pinning the
+    actual CAD 66,809 → 66,818 divergence; a USD structural-identity test
+    (`gross − fee === net`, which does **not** hold across a currency
+    conversion — `commercialFee` and `received` are denominated
+    differently there, the trap that makes `spread` non-derivable from
+    the other three figures).
+- Implemented v0.4, per `docs/plan-v0.4.html`: currency coverage widened
+  from 2 (USD, CAD) to the 22 currencies PayPal and Frankfurter both
+  support, a country picker for buyer-market selection, a fee-table
+  refresh workflow, and `CONSTITUTION.md` open question #1 resolved.
+  - `src/lib/fees/currencies.ts` (new) — 22-currency table (USD, CAD,
+    EUR, GBP, CHF, AUD, NZD, SGD, HKD, JPY, SEK, NOK, DKK, PLN, CZK, HUF,
+    ILS, MXN, BRL, MYR, PHP, THB); TWD and RUB are in PayPal's published
+    table but excluded here since Frankfurter/ECB has no rate for
+    either. Each entry carries a `fixedFeeMinorUnits`, looked up
+    directly by currency — the fixed fee is no longer derived from the
+    USD figure via the FX rate, which is what open question #1 asked
+    for. Only USD (`$0.31`, the T1–T3 observed figure, not PayPal's
+    published `$0.30`) is `"observed"`; every other currency is PayPal's
+    published figure, `"unvalidated"`.
+  - `src/lib/fees/markets.ts` (new) — `BuyerMarket` derived from
+    `BUYER_MARKETS`; a `COUNTRIES` table (47 entries: UAE, the 31-country
+    EEA+UK set, 14 representative countries for the remaining supported
+    currencies, and an "Other / not listed" catch-all) with
+    `marketForCountry()`. Deliberately includes Switzerland mapped to
+    `OTHER`, not `EEA_UK` — it's EFTA, not EEA, exactly the
+    classification mistake a country picker exists to prevent over a
+    direct three-bucket dropdown.
+  - `src/lib/fees/engine.ts` — the fixed fee is now
+    `currencySpec(payCurrency).fixedFeeMinorUnits`, not derived via FX;
+    `resolveFixedFeeCents` was removed as dead code. Fixed a latent bug
+    this surfaced: `fxBaseRateToUSD` is USD per 1 *major* unit of the
+    pay currency, but the engine works in minor units, so converting
+    between USD cents and a foreign minor unit needs a
+    `10 ** (usdExponent - payCurrencyExponent)` scale factor
+    (`fxRateInMinorUnits`) — without it, a zero-decimal currency like
+    JPY would settle 100x too small. Invisible through v0.1–v0.3 since
+    CAD (exponent 2, same as USD) was the only non-USD currency in
+    scope.
+  - `Money.cents`/`FeeLineItem.cents` renamed to `minorUnits` throughout
+    (`types.ts`, `engine.ts`, `format.ts`, `breakdown-link.ts`, both
+    UI routes) — "cents" stopped being accurate once JPY (minor-unit
+    exponent 0) was in scope. `src/lib/format.ts`'s formatters are now
+    keyed by each currency's `minorUnitExponent` instead of a hardcoded
+    2 and `/100`. The share URL's query-param keys and encoding are
+    unchanged, so v0.3-era links still decode.
+  - `src/lib/share/breakdown-link.ts` and
+    `src/components/calculator-form.tsx` now source their
+    currency/market lists from `currencies.ts`/`markets.ts` instead of
+    hand-duplicated arrays — the hazard flagged when v0.3 shipped.
+  - `src/lib/fees/schedule.ts` gained `SCHEDULE_LAST_REVIEWED_ON` and
+    `isScheduleReviewOverdue()` (92-day interval); surfaced as a banner
+    on `src/app/page.tsx` only, not the client-facing `/breakdown`
+    route. `docs/FEE-TABLE-REFRESH.md` (new) is the checklist this
+    operationalizes.
+  - Regression numbers that changed deliberately: the Canadian scenario
+    in `engine.test.ts` moves from `4667 / 2784 / 66_809` to
+    `4655 / 2784 / 66_818` (CAD's published $0.30 fixed fee vs. the old
+    FX-derived ~$0.42 estimate). New tests: a JPY minor-unit-scaling
+    regression, a JPY round-trip sweep, `isScheduleReviewOverdue`
+    boundary cases, and currency-metadata checks alongside the existing
+    schedule-metadata ones.
+- Added `docs/plan-v0.4.html`: implementation proposal for the fourth
+  roadmap milestone — broader currency and buyer-market coverage plus a
+  fee-table refresh workflow, per `docs/CONSTITUTION.md`. Three scope
+  decisions were confirmed with the user before drafting: (1) support all
+  22 currencies that appear in both PayPal's published fixed-fee table and
+  Frankfurter's rate list, including JPY, which has no minor decimal unit
+  and requires the codebase's hardcoded "divide by 100" formatting
+  assumption to become currency-aware; (2) replace the buyer-market
+  dropdown with a country picker that maps a selected country to the
+  correct PayPal market bucket, rather than asking Ms. K to classify UAE /
+  EEA & UK / all other markets herself; (3) the refresh workflow is a
+  written checklist plus review-date metadata on the schedule plus a
+  staleness note surfaced in Ms. K's own calculator view (not the
+  client-facing shared breakdown). The plan also resolves
+  `CONSTITUTION.md`'s open question #1 (the non-USD fixed-fee table) by
+  switching the engine from FX-deriving each non-USD fixed fee to a direct
+  per-currency lookup of PayPal's published figures — open question #2 (the
+  ~0.22pp rate gap) stays parked at the user's direction and is untouched.
 - Added a "Running locally" section to `README.md`: `pnpm install` /
   `pnpm dev`, a note that no environment variables are required (the
   Frankfurter FX lookup needs no API key), and the other `pnpm` commands

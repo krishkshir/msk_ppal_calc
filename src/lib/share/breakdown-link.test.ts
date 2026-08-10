@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { decodeBreakdownParams, encodeBreakdownParams, type SharedBreakdown } from "./breakdown-link";
+import { CURRENCIES } from "../fees/currencies";
+import { BUYER_MARKETS } from "../fees/markets";
 
 describe("encodeBreakdownParams / decodeBreakdownParams — round trip", () => {
   it("USD (no FX): encodes without fx/on, decodes back to the same value", () => {
     const input: SharedBreakdown = {
-      grossPaidCents: 10_000,
+      grossPaidMinorUnits: 10_000,
       payCurrency: "USD",
       buyerMarket: "OTHER",
       scheduleAsOf: "2026-05-28",
@@ -19,11 +21,60 @@ describe("encodeBreakdownParams / decodeBreakdownParams — round trip", () => {
 
   it("CAD (with FX): round-trips the frozen rate and its date", () => {
     const input: SharedBreakdown = {
-      grossPaidCents: 100_000,
+      grossPaidMinorUnits: 100_000,
       payCurrency: "CAD",
       buyerMarket: "OTHER",
       fx: { rate: 0.7312, asOf: "2026-08-10" },
       scheduleAsOf: "2026-05-28",
+    };
+    const query = encodeBreakdownParams(input);
+    const decoded = decodeBreakdownParams(Object.fromEntries(new URLSearchParams(query)));
+    expect(decoded).toEqual({ ok: true, value: input });
+  });
+
+  it("a v0.3-era link (only USD/CAD ever existed) still decodes under the widened v0.4 currency set", () => {
+    const query = "gross=100000&cur=CAD&mkt=OTHER&sched=2026-05-28&fx=0.7312&on=2026-08-10";
+    const decoded = decodeBreakdownParams(Object.fromEntries(new URLSearchParams(query)));
+    expect(decoded).toEqual({
+      ok: true,
+      value: {
+        grossPaidMinorUnits: 100_000,
+        payCurrency: "CAD",
+        buyerMarket: "OTHER",
+        fx: { rate: 0.7312, asOf: "2026-08-10" },
+        scheduleAsOf: "2026-05-28",
+      },
+    });
+  });
+
+  it("a pre-fix link with no frozen fee/net/spread still decodes, with frozen absent", () => {
+    const query = "gross=100000&cur=CAD&mkt=OTHER&sched=2026-05-28&fx=0.7312&on=2026-08-10";
+    const decoded = decodeBreakdownParams(Object.fromEntries(new URLSearchParams(query)));
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) expect(decoded.value.frozen).toBeUndefined();
+  });
+
+  it("USD with a frozen fee/net (no spread): round-trips", () => {
+    const input: SharedBreakdown = {
+      grossPaidMinorUnits: 10_000,
+      payCurrency: "USD",
+      buyerMarket: "OTHER",
+      scheduleAsOf: "2026-05-28",
+      frozen: { feeMinorUnits: 493, netMinorUnits: 9_507 },
+    };
+    const query = encodeBreakdownParams(input);
+    const decoded = decodeBreakdownParams(Object.fromEntries(new URLSearchParams(query)));
+    expect(decoded).toEqual({ ok: true, value: input });
+  });
+
+  it("CAD with a frozen fee/net/spread: round-trips", () => {
+    const input: SharedBreakdown = {
+      grossPaidMinorUnits: 100_000,
+      payCurrency: "CAD",
+      buyerMarket: "OTHER",
+      fx: { rate: 0.73, asOf: "2026-08-10" },
+      scheduleAsOf: "2026-05-28",
+      frozen: { feeMinorUnits: 4655, netMinorUnits: 66_818, spreadMinorUnits: 2784 },
     };
     const query = encodeBreakdownParams(input);
     const decoded = decodeBreakdownParams(Object.fromEntries(new URLSearchParams(query)));
@@ -56,7 +107,7 @@ describe("decodeBreakdownParams — rejects malformed or tampered input", () => 
   it("rejects an unknown currency", () => {
     expect(decodeBreakdownParams({ ...valid, cur: "XXX" })).toEqual({
       ok: false,
-      reason: "cur must be one of USD, CAD",
+      reason: `cur must be one of ${CURRENCIES.map((c) => c.code).join(", ")}`,
     });
   });
 
@@ -68,7 +119,7 @@ describe("decodeBreakdownParams — rejects malformed or tampered input", () => 
   it("rejects an unknown buyer market", () => {
     expect(decodeBreakdownParams({ ...valid, mkt: "MARS" })).toEqual({
       ok: false,
-      reason: "mkt must be one of UAE, EEA_UK, OTHER",
+      reason: `mkt must be one of ${BUYER_MARKETS.join(", ")}`,
     });
   });
 
@@ -129,7 +180,7 @@ describe("decodeBreakdownParams — rejects malformed or tampered input", () => 
     expect(decodeBreakdownParams({ ...valid, gross: ["10000", "99999"] })).toEqual({
       ok: true,
       value: {
-        grossPaidCents: 10_000,
+        grossPaidMinorUnits: 10_000,
         payCurrency: "USD",
         buyerMarket: "OTHER",
         scheduleAsOf: "2026-05-28",
@@ -155,5 +206,74 @@ describe("decodeBreakdownParams — rejects malformed or tampered input", () => 
     expect(
       decodeBreakdownParams({ ...valid, cur: "CAD", fx: "0.73", on: "2026-04-31" }),
     ).toEqual({ ok: false, reason: "on must be a YYYY-MM-DD date" });
+  });
+
+  it("rejects fee present without net", () => {
+    expect(decodeBreakdownParams({ ...valid, fee: "100" })).toEqual({
+      ok: false,
+      reason: "fee and net must both be present or both be absent",
+    });
+  });
+
+  it("rejects net present without fee", () => {
+    expect(decodeBreakdownParams({ ...valid, net: "9900" })).toEqual({
+      ok: false,
+      reason: "fee and net must both be present or both be absent",
+    });
+  });
+
+  it("rejects a non-integer fee", () => {
+    expect(decodeBreakdownParams({ ...valid, fee: "100.5", net: "9900" })).toEqual({
+      ok: false,
+      reason: "fee must be a non-negative integer",
+    });
+  });
+
+  it("rejects a negative net", () => {
+    expect(decodeBreakdownParams({ ...valid, fee: "100", net: "-1" })).toEqual({
+      ok: false,
+      reason: "net must be a non-negative integer",
+    });
+  });
+
+  it("rejects spread present alongside cur=USD, even with fee/net present", () => {
+    expect(decodeBreakdownParams({ ...valid, fee: "100", net: "9900", spread: "50" })).toEqual({
+      ok: false,
+      reason: "spread must be absent when cur is USD",
+    });
+  });
+
+  it("rejects spread missing when cur is not USD and fee/net are present", () => {
+    expect(
+      decodeBreakdownParams({
+        ...valid,
+        cur: "CAD",
+        fx: "0.73",
+        on: "2026-08-10",
+        fee: "4655",
+        net: "66818",
+      }),
+    ).toEqual({ ok: false, reason: "spread is required when cur is not USD and fee/net are present" });
+  });
+
+  it("rejects a non-integer spread", () => {
+    expect(
+      decodeBreakdownParams({
+        ...valid,
+        cur: "CAD",
+        fx: "0.73",
+        on: "2026-08-10",
+        fee: "4655",
+        net: "66818",
+        spread: "27.5",
+      }),
+    ).toEqual({ ok: false, reason: "spread must be a non-negative integer" });
+  });
+
+  it("rejects a stray spread with fee and net both absent", () => {
+    expect(decodeBreakdownParams({ ...valid, spread: "50" })).toEqual({
+      ok: false,
+      reason: "spread must be absent when fee and net are absent",
+    });
   });
 });

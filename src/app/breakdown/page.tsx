@@ -8,13 +8,14 @@ import { SCHEDULE_EFFECTIVE_FROM } from "@/lib/fees/schedule";
 import type { Breakdown } from "@/lib/fees/types";
 import { formatMoney } from "@/lib/format";
 import { decodeBreakdownParams, type SharedBreakdown } from "@/lib/share/breakdown-link";
+import { hasFrozenDrift } from "@/lib/share/drift";
 
 type SearchParams = { [key: string]: string | string[] | undefined };
 
 type Resolved =
   | { status: "decode-error"; reason: string }
   | { status: "engine-error"; message: string }
-  | { status: "ok"; breakdown: Breakdown; shared: SharedBreakdown };
+  | { status: "ok"; breakdown: Breakdown; shared: SharedBreakdown; drifted: boolean };
 
 // generateMetadata and the page component are both invoked for the same
 // request; cache() dedupes the decode+settle() work between them instead
@@ -23,16 +24,24 @@ const resolve = cache((raw: SearchParams): Resolved => {
   const decoded = decodeBreakdownParams(raw);
   if (!decoded.ok) return { status: "decode-error", reason: decoded.reason };
 
-  const { grossPaidCents, payCurrency, buyerMarket, fx } = decoded.value;
+  const shared = decoded.value;
+  const { grossPaidMinorUnits, payCurrency, buyerMarket, fx, frozen } = shared;
+
   try {
     const breakdown = settle({
-      grossPaidCents,
+      grossPaidMinorUnits,
       payCurrency,
       buyerMarket,
       monthlyVolumeUSDCents: 0,
       fxBaseRateToUSD: fx?.rate,
     });
-    return { status: "ok", breakdown, shared: decoded.value };
+
+    // frozen (fee/net/spread) is unsigned and attacker-editable, so it's
+    // used only as a signal for whether to warn — the displayed
+    // breakdown is always this genuine recomputation, never frozen's
+    // numbers. See docs/plan-share-link-drift.html "Trust boundary".
+    const drifted = frozen != null && hasFrozenDrift(breakdown, frozen);
+    return { status: "ok", breakdown, shared, drifted };
   } catch (error) {
     return { status: "engine-error", message: describeCalculationError(error) };
   }
@@ -47,7 +56,7 @@ export async function generateMetadata(
   }
   const { grossPaid, received } = resolved.breakdown;
   return {
-    title: `Where your payment went — ${formatMoney(received.cents, received.currency)} received of ${formatMoney(grossPaid.cents, grossPaid.currency)}`,
+    title: `Where your payment went — ${formatMoney(received.minorUnits, received.currency)} received of ${formatMoney(grossPaid.minorUnits, grossPaid.currency)}`,
     description:
       "A breakdown of PayPal's transaction fee and any currency-conversion spread on this payment.",
   };
@@ -99,11 +108,19 @@ export default async function BreakdownPage(props: PageProps<"/breakdown">) {
             </p>
           ) : null}
 
-          {resolved.shared.scheduleAsOf !== SCHEDULE_EFFECTIVE_FROM ? (
+          {resolved.shared.frozen ? (
+            resolved.drifted ? (
+              <p className="mt-4 border-t border-rule pt-3 font-mono text-xs text-brass">
+                This link was created under an earlier fee schedule or calculation methodology;
+                the exact amount originally shown for this payment may have differed from
+                what&apos;s shown above.
+              </p>
+            ) : null
+          ) : resolved.shared.scheduleAsOf !== SCHEDULE_EFFECTIVE_FROM ? (
             <p className="mt-4 border-t border-rule pt-3 font-mono text-xs text-brass">
               These figures were computed under the fee schedule as of{" "}
-              {resolved.shared.scheduleAsOf}. PayPal&apos;s rates have since been updated; the
-              numbers above reflect the current schedule.
+              {resolved.shared.scheduleAsOf}, which differs from our current schedule (
+              {SCHEDULE_EFFECTIVE_FROM}). The numbers above reflect the current schedule.
             </p>
           ) : null}
 

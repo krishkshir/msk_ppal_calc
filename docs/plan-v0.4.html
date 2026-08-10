@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan v0.4 — msk_ppal_calc</title>
+<style>
+  :root {
+    --ink: #12203A;
+    --paper: #FBFAF7;
+    --paper-dim: #F3F1EA;
+    --rule: #DAD5C7;
+    --red: #A6432B;
+    --teal: #1F6F5C;
+    --brass: #C9A227;
+    --muted: #5B6472;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 840px; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
+  header.page-head {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 2rem;
+    margin-bottom: 3rem;
+  }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 0.75rem;
+  }
+  h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 600;
+    font-size: clamp(2rem, 5vw, 2.75rem);
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.01em;
+  }
+  .subtitle { color: var(--muted); font-size: 1.05rem; margin: 0; }
+  h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.5rem;
+    margin: 3rem 0 1rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+  }
+  h2:first-of-type { border-top: none; padding-top: 0; }
+  h3 {
+    font-size: 1.05rem;
+    margin: 2rem 0 0.75rem;
+    color: var(--ink);
+  }
+  p { margin: 0 0 1rem; }
+  blockquote {
+    margin: 1.5rem 0;
+    padding: 1rem 1.25rem;
+    background: var(--paper-dim);
+    border-left: 3px solid var(--brass);
+    font-style: italic;
+    color: var(--ink);
+  }
+  blockquote p:last-child { margin-bottom: 0; }
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    background: var(--paper-dim);
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+  pre {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 1.25rem 1.5rem;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.7;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.25rem 0;
+    font-size: 0.95rem;
+  }
+  caption { caption-side: bottom; }
+  th, td {
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  td:nth-child(2), td.num {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    white-space: nowrap;
+  }
+  .callout {
+    margin: 1.5rem 0;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--red);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--red) 6%, var(--paper));
+  }
+  .callout .label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--red);
+    margin: 0 0 0.5rem;
+    font-weight: 600;
+  }
+  .callout.ok {
+    border-color: var(--teal);
+    background: color-mix(in srgb, var(--teal) 6%, var(--paper));
+  }
+  .callout.ok .label { color: var(--teal); }
+  .open-questions {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .open-questions li {
+    padding: 0.9rem 0 0.9rem 2.25rem;
+    position: relative;
+    border-bottom: 1px solid var(--rule);
+  }
+  .open-questions li:last-child { border-bottom: none; }
+  .open-questions li::before {
+    content: "?";
+    position: absolute;
+    left: 0;
+    top: 0.85rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    border: 1.5px solid var(--brass);
+    color: var(--brass);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .open-questions strong { color: var(--ink); }
+  .files-table td:first-child, .files-table th:first-child {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.85rem;
+    color: var(--teal);
+  }
+  ul.roadmap { list-style: none; margin: 0; padding: 0; }
+  ul.roadmap li {
+    display: flex;
+    gap: 1rem;
+    padding: 0.6rem 0;
+    align-items: baseline;
+  }
+  ul.roadmap .ver {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-weight: 600;
+    color: var(--teal);
+    min-width: 4.5rem;
+  }
+  ol.exec { padding-left: 1.25rem; }
+  ol.exec li { margin-bottom: 0.6rem; }
+  ul.steps { padding-left: 1.25rem; }
+  ul.steps li { margin-bottom: 0.5rem; }
+  a { color: var(--teal); }
+  footer.sources {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  footer.sources ul { padding-left: 1.25rem; }
+  .status-pill {
+    display: inline-block;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--teal);
+    border: 1px solid var(--teal);
+    border-radius: 999px;
+    padding: 0.2rem 0.7rem;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page-head">
+    <p class="eyebrow">Plan · msk_ppal_calc · v0.4</p>
+    <h1>Implementing v0.4: broader currency and market coverage</h1>
+    <p class="subtitle">Proposal for the fourth roadmap milestone in <code>docs/CONSTITUTION.md</code> —
+    fee-table refresh workflow, broader currency and buyer-market coverage, and resolving the
+    open question this project can actually resolve.</p>
+    <p style="margin-top:1rem"><span class="status-pill">Proposed</span></p>
+  </header>
+
+  <section>
+    <h2>Scope</h2>
+    <p>
+      v0.1 built the engine, v0.2 built Ms. K's own calculator, v0.3 built the artifact she sends a
+      client. All three shipped against a deliberately narrow slice: two currencies (USD, CAD) and a
+      fixed-fee model that <em>derives</em> every non-USD fee by converting the observed USD figure at
+      the FX rate, rather than using PayPal's own published per-currency table. The roadmap names v0.4
+      as the milestone that widens both:
+    </p>
+    <blockquote>
+      <p>v0.4 — Fee-table refresh workflow; broader currency and buyer-market coverage; resolve the
+      open questions above.</p>
+    </blockquote>
+    <p>Three scope decisions were confirmed with the user before drafting this plan:</p>
+    <ul>
+      <li><strong>Currencies.</strong> All 22 currencies that appear in both PayPal's published
+      fixed-fee table and Frankfurter's rate list — including JPY, which has no minor decimal unit and
+      forces the codebase's hardcoded "divide by 100" assumption to become real.</li>
+      <li><strong>Buyer market.</strong> A country picker that maps a selected country to the correct
+      PayPal market bucket, rather than asking Ms. K to classify UAE / EEA &amp; UK / all other markets
+      herself.</li>
+      <li><strong>Refresh workflow.</strong> A written checklist, review-date metadata on the schedule,
+      and a staleness note surfaced in the calculator UI when a review is overdue.</li>
+    </ul>
+    <p>
+      Of <code>CONSTITUTION.md</code>'s two still-open questions, v0.4 resolves only the first — the
+      fixed-fee table for non-USD currencies. The second (the unexplained ~0.22pp gap between the
+      observed 4.625% rate and PayPal's published 4.40% figure) stays <strong>parked at the user's
+      direction</strong>; nothing in this plan touches the commercial rate itself.
+    </p>
+    <p>Explicitly out of scope, per the roadmap's own sequencing:</p>
+    <ul>
+      <li><strong>v1.0+</strong> — PayPal API reconciliation against real
+      <code>seller_receivable_breakdown</code> data.</li>
+      <li>Re-deriving or re-validating the commercial rate/tier percentages themselves — every
+      <code>ScheduleEntry.rate</code> is untouched by this plan.</li>
+      <li>Any resolution of open question #2 above.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>One source of truth for currencies and markets</h2>
+    <p>
+      Today <code>Currency</code> and <code>BuyerMarket</code> are bare unions in
+      <code>src/lib/fees/types.ts</code>, but two other files hand-duplicate them as runtime arrays
+      with no compile-time link: <code>src/lib/share/breakdown-link.ts</code>'s <code>CURRENCIES</code>
+      / <code>BUYER_MARKETS</code> guard arrays, and
+      <code>src/components/calculator-form.tsx</code>'s <code>CURRENCIES</code> / <code>BUYER_MARKETS</code>
+      dropdown option lists. This was already flagged as a v0.4 hazard in <code>docs/CHANGELOG.md</code>
+      when v0.3 shipped: going from 2 currencies to 22 without fixing it would silently reject valid
+      share links for every currency added after the fact, with no type error to catch it.
+    </p>
+    <div class="callout">
+      <p class="label">Finding — three independent enumerations of the same two unions</p>
+      <p>
+        <code>types.ts</code> (the union), <code>breakdown-link.ts</code> (a runtime validation array),
+        and <code>calculator-form.tsx</code> (a UI option list) each currently list <code>"USD" | "CAD"</code>
+        and the three buyer markets separately, by hand. None derives from another.
+      </p>
+    </div>
+    <p>v0.4 inverts the relationship — arrays become the source of truth, and the unions derive from them:</p>
+    <pre>// src/lib/fees/currencies.ts — imports nothing, so no import cycle
+export interface CurrencySpec {
+  code: string;
+  label: string;
+  minorUnitExponent: 0 | 2;       // JPY is 0; every other currency here is 2
+  fixedFeeMinorUnits: number;
+  confidence: Confidence;
+  effectiveFrom: string;
+  sourceUrl: string;
+  note?: string;
+}
+export const CURRENCIES = [ /* 22 entries, see next section */ ] as const;
+export type Currency = (typeof CURRENCIES)[number]["code"];
+export function currencySpec(code: Currency): CurrencySpec;
+export function isCurrency(value: unknown): value is Currency;
+
+// src/lib/fees/markets.ts
+export const BUYER_MARKETS = ["UAE", "EEA_UK", "OTHER"] as const;
+export type BuyerMarket = (typeof BUYER_MARKETS)[number];
+export interface CountrySpec { code: string; name: string; market: BuyerMarket; defaultCurrency: Currency; }
+export const COUNTRIES: CountrySpec[] = [ /* see "Country picker" below */ ];
+export function marketForCountry(countryCode: string): BuyerMarket;
+export function isBuyerMarket(value: unknown): value is BuyerMarket;</pre>
+    <p>
+      <code>src/lib/fees/types.ts</code> re-exports <code>Currency</code> and <code>BuyerMarket</code>
+      from these two new modules, so no existing import path (<code>from "@/lib/fees/types"</code>)
+      changes anywhere in the codebase. <code>breakdown-link.ts</code> and <code>calculator-form.tsx</code>
+      are updated to consume <code>CURRENCIES</code> / <code>COUNTRIES</code> from the new modules
+      instead of their own hand-written copies.
+    </p>
+    <div class="callout">
+      <p class="label">Finding — two pinned test literals will change</p>
+      <p>
+        <code>breakdown-link.test.ts</code> currently asserts the exact rejection strings
+        <code>"cur must be one of USD, CAD"</code> and
+        <code>"mkt must be one of UAE, EEA_UK, OTHER"</code>. Once the list is derived from
+        <code>CURRENCIES</code>/<code>BUYER_MARKETS</code>, those tests must assert the derived string
+        (built via <code>.join(", ")</code> over the new arrays) rather than a hardcoded literal, or
+        they'll fail the moment a currency is added.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>The fixed fee stops being FX-derived</h2>
+    <p>
+      This is the substance of the open question v0.4 resolves. Today
+      <code>engine.ts</code>'s <code>resolveFixedFeeCents</code> estimates any non-USD fixed fee by
+      converting the observed USD figure through the FX rate:
+      <code>roundHalfUpCents(fixedFeeUSDCents / fxBaseRateToUSD)</code>. That's a documented estimate,
+      not a lookup — and <code>CONSTITUTION.md</code> already has PayPal's actual published
+      per-currency fixed-fee table sitting unused (§ "Fixed fee by currency (published)").
+    </p>
+    <div class="callout ok">
+      <p class="label">Decision — look the fixed fee up by currency, stop deriving it from FX</p>
+      <p>
+        <code>fixedFeeUSDCents</code> is removed from <code>ScheduleEntry</code> in
+        <code>src/lib/fees/schedule.ts</code> — PayPal's fixed fee varies by <em>currency</em>, not by
+        market or volume tier, so keeping it on the tier misrepresented the structure. The commercial
+        fee's fixed component becomes <code>currencySpec(payCurrency).fixedFeeMinorUnits</code>,
+        looked up directly, with no FX conversion involved at all.
+      </p>
+    </div>
+    <p>
+      USD keeps its <strong>observed $0.31</strong>, not PayPal's published $0.30 — this is the exact
+      correction <code>CONSTITUTION.md</code>'s T1–T3 analysis already established, and nothing about
+      broadening currency coverage should regress it. A
+      <code>PUBLISHED_USD_FIXED_FEE_MINOR_UNITS = 30</code> constant stays alongside it in
+      <code>currencies.ts</code> so the refutation remains visible in code, not just in the docs. Every
+      other currency takes PayPal's published figure verbatim — <strong>not</strong> scaled by the
+      observed/published USD ratio (1.033), which would invent data no transaction has confirmed.
+    </p>
+    <table>
+      <thead><tr><th>Currency</th><th>Fixed fee</th><th>Confidence</th></tr></thead>
+      <tbody>
+        <tr><td>USD</td><td class="num">0.31</td><td>observed</td></tr>
+        <tr><td>CAD</td><td class="num">0.30</td><td>unvalidated</td></tr>
+        <tr><td>EUR</td><td class="num">0.35</td><td>unvalidated</td></tr>
+        <tr><td>GBP</td><td class="num">0.20</td><td>unvalidated</td></tr>
+        <tr><td>CHF</td><td class="num">0.55</td><td>unvalidated</td></tr>
+        <tr><td>AUD</td><td class="num">0.30</td><td>unvalidated</td></tr>
+        <tr><td>NZD</td><td class="num">0.45</td><td>unvalidated</td></tr>
+        <tr><td>SGD</td><td class="num">0.50</td><td>unvalidated</td></tr>
+        <tr><td>HKD</td><td class="num">2.35</td><td>unvalidated</td></tr>
+        <tr><td>JPY</td><td class="num">40</td><td>unvalidated</td></tr>
+        <tr><td>SEK</td><td class="num">3.25</td><td>unvalidated</td></tr>
+        <tr><td>NOK</td><td class="num">2.80</td><td>unvalidated</td></tr>
+        <tr><td>DKK</td><td class="num">2.60</td><td>unvalidated</td></tr>
+        <tr><td>PLN</td><td class="num">1.35</td><td>unvalidated</td></tr>
+        <tr><td>CZK</td><td class="num">10.00</td><td>unvalidated</td></tr>
+        <tr><td>HUF</td><td class="num">90.00</td><td>unvalidated</td></tr>
+        <tr><td>ILS</td><td class="num">1.20</td><td>unvalidated</td></tr>
+        <tr><td>MXN</td><td class="num">4.00</td><td>unvalidated</td></tr>
+        <tr><td>BRL</td><td class="num">0.60</td><td>unvalidated</td></tr>
+        <tr><td>MYR</td><td class="num">2.00</td><td>unvalidated</td></tr>
+        <tr><td>PHP</td><td class="num">15.00</td><td>unvalidated</td></tr>
+        <tr><td>THB</td><td class="num">11.00</td><td>unvalidated</td></tr>
+      </tbody>
+    </table>
+    <p>
+      22 rows, all sourced from PayPal's published business-fees page. Two currencies in that same
+      published table — TWD and RUB — are dropped: Frankfurter/ECB has no rate for either, and the FX
+      module has no other rate source, so neither could ever be settled or quoted regardless of the
+      fixed-fee table.
+    </p>
+    <div class="callout">
+      <p class="label">Finding — the moot volume tiers pick up the correction too</p>
+      <p>
+        The three unvalidated <code>OTHER</code>-market volume tiers above $3,000 currently carry
+        <code>fixedFeeUSDCents: 30</code>; once the fixed fee is a currency lookup, a USD payment in
+        any of those tiers picks up $0.31 instead. This is a real, stated consequence of the change,
+        not a silent one — but it's inert in practice, since <code>CONSTITUTION.md</code> already
+        confirms Ms. K doesn't qualify for merchant-tier rates and her practical tier is always the
+        $0–$3,000 row.
+      </p>
+    </div>
+    <p>
+      <code>confidenceFor</code> in <code>engine.ts</code> is unchanged — a non-USD commercial fee
+      still reports <code>estimated</code> overall (an observed rate combined with a published-but-
+      unobserved fixed fee is still not fully observed). Only the line item's <code>note</code> text
+      changes, from "the fixed fee is estimated by converting the USD figure" to "the fixed fee is
+      PayPal's published &lt;currency&gt; figure, unvalidated by observation."
+    </p>
+    <div class="callout">
+      <p class="label">Finding — the Canadian regression locks move, deliberately</p>
+      <p>
+        <code>engine.test.ts</code>'s "README's Canadian scenario" test locks CAD 1,000.00 at
+        0.73 USD/CAD to <code>commercialFee 4667 / fxConversion 2784 / received 66_809</code>, built on
+        today's FX-derived CAD fixed fee of 42 cents (<code>round(31 / 0.73)</code>). With the published
+        CAD fixed fee of 30 cents used directly, the same inputs produce
+        <strong>commercialFee 4655 / fxConversion 2784 / received 66_818</strong> — nine cents more
+        lands in Ms. K's account, because 30 CAD cents is a smaller deduction than the FX-inflated 42.
+        This test's assertions must be updated to the new numbers as part of this change, with the
+        arithmetic shown in the commit, not silently "fixed."
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Minor units, because JPY has none</h2>
+    <p>
+      <code>src/lib/format.ts</code> divides by a literal <code>100</code> in three places, and
+      <code>Money.cents</code> / <code>FeeLineItem.cents</code> name the unit "cents" throughout the
+      engine. JPY has no minor decimal unit at all — PayPal's published ¥40.00 fixed fee is 40 yen, not
+      0.40 — so every one of those assumptions breaks the moment JPY is added.
+    </p>
+    <table class="files-table">
+      <thead><tr><th>File</th><th>Change</th></tr></thead>
+      <tbody>
+        <tr><td>src/lib/fees/types.ts</td><td><code>Money.cents</code> → <code>Money.minorUnits</code>;
+        <code>FeeLineItem.cents</code> → <code>FeeLineItem.minorUnits</code>. Fields that are always
+        USD (<code>netTargetCents</code>, <code>minMonthlyVolumeUSDCents</code>) keep their name — the
+        name should state the unit, and those never vary by pay currency.</td></tr>
+        <tr><td>src/lib/fees/money.ts</td><td><code>roundHalfUpCents</code> → <code>roundHalfUp</code>;
+        behavior unchanged (<code>Math.floor(x + 0.5)</code>).</td></tr>
+        <tr><td>src/lib/format.ts</td><td><code>formatMoney(minorUnits, currency)</code> and
+        <code>formatAmount(minorUnits, currency)</code> build the <code>Intl.NumberFormat</code> and the
+        divisor from <code>currencySpec(currency).minorUnitExponent</code> instead of a hardcoded 2 and
+        100. <code>formatAmount</code> gains a required <code>currency</code> parameter — its two call
+        sites (<code>fee-breakdown.tsx</code>'s fee row and its converted-to-USD row) already know which
+        currency they're formatting. <code>parseDollarsToCents</code> →
+        <code>parseAmountToMinorUnits(input, currency)</code>, same exponent-aware treatment on the way
+        in.</td></tr>
+      </tbody>
+    </table>
+    <div class="callout ok">
+      <p class="label">Decision — share links keep decoding, only the TS field name changes</p>
+      <p>
+        The share URL's query-param keys (<code>gross</code>, <code>cur</code>, <code>mkt</code>,
+        <code>sched</code>, <code>fx</code>, <code>on</code>) and the integer-minor-unit encoding are
+        untouched by this rename — <code>gross</code> was always "smallest unit of the currency," which
+        already meant something different for a currency with a different exponent. A v0.3-era link is
+        still valid input to the v0.4 decoder. Only <code>SharedBreakdown</code>'s in-memory field name
+        changes to match the engine.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Country picker for buyer market</h2>
+    <p>
+      The three buyer-market buckets already cover PayPal's whole schedule — nothing about the bucket
+      set itself changes. What changes is how Ms. K picks one: today's dropdown asks her to know
+      PayPal's classification directly ("UAE" / "EEA &amp; UK" / "All other markets"). A country picker
+      instead asks the question she actually knows the answer to — where the client is — and the app
+      does the classification.
+    </p>
+    <p>
+      <code>calculator-form.tsx</code> gains a country <code>&lt;select&gt;</code>, styled identically to
+      the two existing native selects (this repo deliberately hand-rolls form controls rather than
+      pulling in a shadcn <code>Select</code> — see <code>docs/plan-v0.3.html</code> § "The share
+      affordance"). The resolved market stays visible underneath as a caption, e.g. "PayPal market:
+      EEA &amp; UK," so the mapping is auditable rather than hidden behind the picker.
+    </p>
+    <pre>src/lib/fees/markets.ts
+
+COUNTRIES: CountrySpec[] =
+  UAE                                              → market: "UAE"
+  EU-27 + Iceland, Liechtenstein, Norway, UK        → market: "EEA_UK"
+  every country whose currency is in CURRENCIES,
+    plus an explicit "Other / not listed" entry     → market: "OTHER"</pre>
+    <p>Selecting a country pre-fills that country's usual currency (<code>defaultCurrency</code>); Ms. K can still override the currency, since a client anywhere may choose to pay in USD.</p>
+    <div class="callout">
+      <p class="label">Finding — the exact classification trap a picker exists to prevent</p>
+      <p>
+        Switzerland is <strong>not</strong> in the EEA — it's EFTA, a separate bloc — so a Swiss client
+        maps to <code>"OTHER"</code> at 4.625%, not to the EEA/UK bucket at 4.69%. That's a genuinely
+        easy mistake to make by hand (Switzerland is geographically and economically "basically EU" to
+        most people), and it's precisely the kind of error an abstract three-bucket dropdown invites and
+        a country-name picker resolves by construction — Ms. K never has to know the EEA's actual
+        membership list.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Fee-table refresh workflow</h2>
+    <p>
+      <code>docs/plan.html</code>'s "Maintenance contract" already committed to a quarterly review
+      against PayPal's published schedule; nothing in the codebase enforces or even surfaces that
+      commitment today. v0.4 makes staleness visible instead of silent — the exact failure mode that
+      section calls out as the one to avoid.
+    </p>
+    <ul class="steps">
+      <li><strong>New <code>docs/FEE-TABLE-REFRESH.md</code></strong> — a checklist: re-read the two
+      PayPal source pages (merchant fees, business fees), diff the market rates / per-currency fixed
+      fees / the 4.0% MEA spread against what's in <code>schedule.ts</code> and <code>currencies.ts</code>,
+      how to append a newly observed transaction (both <code>CONSTITUTION.md</code>'s table and
+      <code>docs/plan.html</code>, per this project's existing dual-doc convention, plus a named
+      regression test in <code>engine.test.ts</code>), and which dates to bump.</li>
+      <li><strong><code>src/lib/fees/schedule.ts</code></strong> gains
+      <code>SCHEDULE_LAST_REVIEWED_ON</code> and <code>REVIEW_INTERVAL_DAYS = 92</code>, plus a pure
+      <code>isScheduleReviewOverdue(today: Date): boolean</code>.</li>
+      <li><strong>Surfaced on <code>src/app/page.tsx</code> only</strong> — Ms. K's own calculator view.
+      Deliberately <em>not</em> added to <code>src/components/fee-breakdown.tsx</code>, which
+      <code>src/app/breakdown/page.tsx</code> also renders for clients: a client has no use for, and
+      shouldn't see, Ms. K's internal maintenance state.</li>
+      <li><strong>Tests</strong> — boundary cases for <code>isScheduleReviewOverdue</code>, and an
+      extension of the existing "schedule metadata" test in <code>engine.test.ts</code> so every entry
+      in <code>CURRENCIES</code> (not just <code>SCHEDULE</code>) carries a well-formed
+      <code>effectiveFrom</code>, a non-empty <code>sourceUrl</code>, and a valid
+      <code>confidence</code>.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Known limitations to record, not hide</h2>
+    <ul class="steps">
+      <li><strong>FX precision thins out for low-unit currencies.</strong> Frankfurter returns
+      JPY→USD to roughly three significant figures (e.g. <code>0.00632</code>) — about 0.1% of slack on
+      a JPY settlement. Acceptable for a figure already labeled an estimate; recorded here rather than
+      discovered later.</li>
+      <li><strong>21 of the 22 non-USD fixed fees remain unvalidated by observation.</strong> v0.4
+      resolves open question #1's <em>sourcing</em> — using PayPal's own published table instead of an
+      FX-derived guess — not its <em>validation</em>. The USD row's own $0.30-published-vs-$0.31-observed
+      gap is the standing proof that a published figure can still be off by a cent; nothing here claims
+      otherwise for the other 21.</li>
+      <li><code>src/lib/fees/errors.ts</code>'s string-matching against engine error messages is
+      pre-existing and unrelated to this change — not touched.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Files to create / change</h2>
+    <table class="files-table">
+      <thead><tr><th>Path</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>src/lib/fees/currencies.ts <em>(new)</em></td><td>22-currency table, <code>Currency</code> derived from it, <code>currencySpec</code>/<code>isCurrency</code></td></tr>
+        <tr><td>src/lib/fees/markets.ts <em>(new)</em></td><td><code>BuyerMarket</code> derived from <code>BUYER_MARKETS</code>, plus <code>COUNTRIES</code> and <code>marketForCountry</code></td></tr>
+        <tr><td>docs/FEE-TABLE-REFRESH.md <em>(new)</em></td><td>The refresh checklist</td></tr>
+        <tr><td>src/lib/fees/types.ts</td><td>Re-export <code>Currency</code>/<code>BuyerMarket</code> from the new modules; rename <code>Money.cents</code>/<code>FeeLineItem.cents</code> to <code>minorUnits</code></td></tr>
+        <tr><td>src/lib/fees/schedule.ts</td><td>Drop <code>fixedFeeUSDCents</code> from <code>ScheduleEntry</code>; add review-date metadata and <code>isScheduleReviewOverdue</code></td></tr>
+        <tr><td>src/lib/fees/engine.ts</td><td>Fixed fee resolved via <code>currencySpec</code> lookup instead of FX derivation; note text updated</td></tr>
+        <tr><td>src/lib/fees/money.ts</td><td><code>roundHalfUpCents</code> → <code>roundHalfUp</code></td></tr>
+        <tr><td>src/lib/format.ts</td><td>Exponent-aware formatting/parsing, keyed by <code>currencySpec</code></td></tr>
+        <tr><td>src/lib/fx/frankfurter.ts</td><td>Widen <code>Exclude&lt;Currency, "USD"&gt;</code> to <code>Exclude&lt;Currency, typeof ACCOUNT_CURRENCY&gt;</code></td></tr>
+        <tr><td>src/lib/share/breakdown-link.ts</td><td>Validate against the derived <code>CURRENCIES</code>/<code>BUYER_MARKETS</code> arrays instead of its own copies</td></tr>
+        <tr><td>src/components/calculator-form.tsx</td><td>Country picker; currency/market dropdowns sourced from the new modules</td></tr>
+        <tr><td>src/components/fee-breakdown.tsx</td><td>Exponent-aware amount formatting (no maintenance-state UI added here — see above)</td></tr>
+        <tr><td>src/app/page.tsx</td><td>Staleness note when <code>isScheduleReviewOverdue()</code> is true</td></tr>
+        <tr><td>src/app/breakdown/page.tsx</td><td>No behavioral change beyond the renamed field; confirmed to still decode v0.3-era links</td></tr>
+        <tr><td>src/lib/fees/engine.test.ts, src/lib/fx/frankfurter.test.ts, src/lib/share/breakdown-link.test.ts</td><td>Updated Canadian-scenario locks; new JPY round-trip sweep; updated rejection-string assertions; new schedule-review-overdue cases</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Doc updates in the same change, per <code>CLAUDE.md</code> § "Before pushing to remote":
+      <code>docs/CONSTITUTION.md</code> (open question #1 recorded as resolved, kept rather than
+      deleted, per this project's practice; currency coverage and the refresh cadence documented),
+      <code>docs/plan.html</code> (kept in sync by design), <code>docs/CHANGELOG.md</code>,
+      <code>CLAUDE.md</code> § "Project status", and <code>README.md</code>.
+    </p>
+  </section>
+
+  <section>
+    <h2>Verification</h2>
+    <ul class="steps">
+      <li><code>pnpm typecheck</code> — the derived-union change is the actual point of section 2: a
+      currency added to <code>CURRENCIES</code> without a fixed fee must fail to compile, not fail at
+      runtime.</li>
+      <li><code>pnpm test</code> — the T1/T2/T3 USD regressions must stay byte-identical (the fixed-fee
+      refactor must not move a USD number, since USD's fixed fee was already a direct lookup); the
+      Canadian scenario's locks move to <code>4655 / 2784 / 66_818</code> as computed above; the
+      <code>settle(quote(n)) ≈ n</code> round-trip property runs for USD, CAD, and JPY.</li>
+      <li><code>pnpm build</code> clean.</li>
+      <li><code>pnpm dev</code>, then the <code>claude-for-safari</code> skill (new tab, screenshot,
+      close the tab, delete screenshots when done) against:
+        <ul>
+          <li>a JPY settlement — confirm ¥ amounts render with no decimal places and the ledger bars
+          stay proportional</li>
+          <li>the country picker — confirm the resolved-market caption updates correctly, including the
+          Switzerland → <code>OTHER</code> case above</li>
+          <li>the staleness note on <code>/</code> with a deliberately backdated
+          <code>SCHEDULE_LAST_REVIEWED_ON</code>, and confirm it does <strong>not</strong> appear on
+          <code>/breakdown</code></li>
+        </ul>
+      </li>
+      <li>Open a share link generated before this change (or hand-construct one against the v0.3 param
+      format) and confirm it still decodes — the backward-compatibility claim in the minor-units
+      section.</li>
+      <li>Confirm <code>git status</code> is clean of screenshots and temp files before pushing, per
+      <code>CLAUDE.md</code> § "Visual verification and debugging."</li>
+    </ul>
+  </section>
+
+  <footer class="sources">
+    <strong>Sources</strong>
+    <ul>
+      <li><a href="CONSTITUTION.md">docs/CONSTITUTION.md</a> — roadmap; "Fixed fee by currency (published)" table (the source for the 22-currency fixed-fee list above); "Open questions" § open question #1; "Observed transactions" for the USD $0.31 figure</li>
+      <li><a href="plan.html">docs/plan.html</a> — "Maintenance contract," the source of the quarterly-review commitment this plan operationalizes</li>
+      <li><a href="plan-v0.3.html">docs/plan-v0.3.html</a> — house style this document follows; the share-link format this plan keeps backward-compatible; the "hand-roll form controls" precedent the country picker follows</li>
+      <li><code>src/lib/fees/{types,schedule,engine,money}.ts</code>, <code>src/lib/format.ts</code>, <code>src/lib/fx/frankfurter.ts</code>, <code>src/lib/share/breakdown-link.ts</code>, <code>src/components/{calculator-form,fee-breakdown}.tsx</code> — the implemented v0.1–v0.3 surfaces this plan modifies, read in full before drafting</li>
+      <li><a href="https://frankfurter.dev/">Frankfurter API</a> currency list — the constraint that drops TWD and RUB from PayPal's published table</li>
+      <li><code>docs/CHANGELOG.md</code> — the v0.3-era note flagging the hand-duplicated <code>Currency</code>/<code>BuyerMarket</code> arrays as a v0.4 hazard, addressed in this plan's "One source of truth" section</li>
+    </ul>
+  </footer>
+
+</div>
+</body>
+</html>

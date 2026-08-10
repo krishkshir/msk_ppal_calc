@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan: fixing the share-link staleness check — msk_ppal_calc</title>
+<style>
+  :root {
+    --ink: #12203A;
+    --paper: #FBFAF7;
+    --paper-dim: #F3F1EA;
+    --rule: #DAD5C7;
+    --red: #A6432B;
+    --teal: #1F6F5C;
+    --brass: #C9A227;
+    --muted: #5B6472;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 840px; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
+  header.page-head {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 2rem;
+    margin-bottom: 3rem;
+  }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 0.75rem;
+  }
+  h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 600;
+    font-size: clamp(2rem, 5vw, 2.75rem);
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.01em;
+  }
+  .subtitle { color: var(--muted); font-size: 1.05rem; margin: 0; }
+  h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.5rem;
+    margin: 3rem 0 1rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+  }
+  h2:first-of-type { border-top: none; padding-top: 0; }
+  h3 {
+    font-size: 1.05rem;
+    margin: 2rem 0 0.75rem;
+    color: var(--ink);
+  }
+  p { margin: 0 0 1rem; }
+  blockquote {
+    margin: 1.5rem 0;
+    padding: 1rem 1.25rem;
+    background: var(--paper-dim);
+    border-left: 3px solid var(--brass);
+    font-style: italic;
+    color: var(--ink);
+  }
+  blockquote p:last-child { margin-bottom: 0; }
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    background: var(--paper-dim);
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+  pre {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 1.25rem 1.5rem;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.7;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.25rem 0;
+    font-size: 0.95rem;
+  }
+  caption { caption-side: bottom; }
+  th, td {
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  td:nth-child(2), td.num {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    white-space: nowrap;
+  }
+  .callout {
+    margin: 1.5rem 0;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--red);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--red) 6%, var(--paper));
+  }
+  .callout .label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--red);
+    margin: 0 0 0.5rem;
+    font-weight: 600;
+  }
+  .callout.ok {
+    border-color: var(--teal);
+    background: color-mix(in srgb, var(--teal) 6%, var(--paper));
+  }
+  .callout.ok .label { color: var(--teal); }
+  .files-table td:first-child, .files-table th:first-child {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.85rem;
+    color: var(--teal);
+  }
+  ul.steps { padding-left: 1.25rem; }
+  ul.steps li { margin-bottom: 0.5rem; }
+  a { color: var(--teal); }
+  footer.sources {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  footer.sources ul { padding-left: 1.25rem; }
+  .status-pill {
+    display: inline-block;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--teal);
+    border: 1px solid var(--teal);
+    border-radius: 999px;
+    padding: 0.2rem 0.7rem;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page-head">
+    <p class="eyebrow">Plan · msk_ppal_calc · bug fix</p>
+    <h1>Fixing the share-link staleness check</h1>
+    <p class="subtitle">A code-review finding from PR 4 (v0.4), deliberately left unfixed by that
+    automated pass because the correct repair is a design decision, not a mechanical patch. This is
+    that decision, written up before implementing it.</p>
+    <p style="margin-top:1rem"><span class="status-pill">Implemented</span></p>
+  </header>
+
+  <div class="callout">
+    <p class="label">Revision — the first implementation trusted unsigned data</p>
+    <p>
+      The plan below originally called for <em>displaying</em> the frozen <code>fee</code>/
+      <code>net</code>/<code>spread</code> figures whenever they disagreed with a fresh
+      recomputation, captioned as "what this link originally showed." A follow-up code review
+      caught the flaw before it shipped further: those params are unsigned and fully
+      attacker-editable — anyone holding the URL can set <code>fee=1&amp;net=99999</code> and the
+      page would have rendered exactly that, with the app's own UI vouching for it as genuine. That
+      is a strictly worse trust story than the bug this plan set out to fix, which could only ever
+      show the output of a <em>real</em> <code>settle()</code> call for some (possibly
+      attacker-chosen) input — never an arbitrary fabricated number. Every section below reflects
+      the corrected, shipped design: frozen figures are used <strong>only</strong> to decide whether
+      to warn, never to choose what's displayed. See "Trust boundary" below.
+    </p>
+  </div>
+
+  <section>
+    <h2>The bug</h2>
+    <p>
+      <code>src/app/breakdown/page.tsx</code>'s <code>resolve()</code> (L22-39) re-runs
+      <code>settle()</code> on every request from the link's frozen <em>inputs</em> only —
+      <code>gross</code>, <code>cur</code>, <code>mkt</code>, <code>fx.rate</code>. The computed
+      figures themselves are never frozen. The page's only drift signal is one string inequality
+      (L102):
+    </p>
+    <pre>resolved.shared.scheduleAsOf !== SCHEDULE_EFFECTIVE_FROM</pre>
+    <p>
+      v0.4 changed the <em>calculation methodology</em> without touching that date.
+      <code>SCHEDULE_EFFECTIVE_FROM</code> is still <code>"2026-05-28"</code>
+      (<code>schedule.ts:18</code>, byte-identical across the PR) — but the CAD fixed fee moved from
+      FX-derived (the deleted <code>resolveFixedFeeCents</code>:
+      <code>roundHalfUpCents(fixedFeeUSDCents / fxBaseRateToUSD)</code>) to a flat
+      <code>fixedFeeMinorUnits: 30</code> lookup in the new <code>currencies.ts</code>. A pre-v0.4
+      CAD share link — CA$1,000.00 at 0.73 USD/CAD — renders <strong>66809</strong> minor units
+      received under the old math and <strong>66818</strong> under the new math. The client who
+      already has that link open sees the new number with no warning at all, silently violating the
+      v0.3 invariant that a shared link never quietly shows different figures. USD is unaffected —
+      its fixed fee was always a direct lookup. Confirmed independently by a verifier agent during
+      the PR 4 review.
+    </p>
+    <div class="callout">
+      <p class="label">Finding — the near-miss in v0.4's own plan</p>
+      <p>
+        <code>docs/plan-v0.4.html</code> § "Minor units, because JPY has none" reasoned carefully
+        about this exact link surface and concluded "share links keep decoding, only the TS field
+        name changes" — correct about <em>decodability</em>, and entirely silent about
+        <em>numerical stability</em>. The share-link contract was checked for whether old links
+        still parse, never for whether they still compute the same answer.
+      </p>
+    </div>
+    <p>
+      The root cause: <code>SCHEDULE_EFFECTIVE_FROM</code> tracks <em>PayPal's page date</em> and
+      <code>SCHEDULE_LAST_REVIEWED_ON</code> tracks <em>our review date</em> (<code>schedule.ts</code>
+      § "Fee-table refresh workflow"). Neither one tracks <em>our math</em>. A PR can change how a
+      figure is computed while both dates stay exactly where they were — which is precisely what
+      happened here.
+    </p>
+  </section>
+
+  <section>
+    <h2>Decision — freeze the outputs, not a version number</h2>
+    <p>
+      Two designs were weighed. A hand-maintained <code>CALC_METHODOLOGY_VERSION</code> constant,
+      bumped whenever the fee math changes and encoded in the link, is the smaller diff — but it
+      reinstates exactly the discipline gap that caused this bug: it works only if a future PR
+      remembers to bump it, which is the same failure mode as a stale <code>schedule.ts</code> date.
+    </p>
+    <div class="callout ok">
+      <p class="label">Decision — freeze the computed figures in the link, compare on open</p>
+      <p>
+        Encode the amounts the link's owner actually saw at creation time, and on every open,
+        recompute from the frozen inputs and compare. Any divergence — from any future cause, not
+        just this one — trips the warning automatically. No constant for anyone to forget to update.
+      </p>
+    </div>
+    <div class="callout ok">
+      <p class="label">Trust boundary — frozen figures are a signal, never a source of truth</p>
+      <p>
+        The frozen trio is unsigned data sitting in a URL query string, with nothing tying it to a
+        genuine past <code>settle()</code> output — no server-side record, no signature, no secret.
+        Anyone holding the link can edit it. So the comparison's result is used for exactly one
+        thing: deciding whether to show a warning. The number actually rendered on screen is
+        <strong>always</strong> this request's fresh <code>settle()</code> recomputation, regardless
+        of drift. This gives up the "show the exact original quote" property the earlier draft of
+        this plan wanted, but it's the only version of this feature that doesn't let anyone turn the
+        client-facing breakdown into a forgery tool.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Three new query params</h2>
+    <table>
+      <thead><tr><th>Param</th><th>Value</th><th>Denominated in</th></tr></thead>
+      <tbody>
+        <tr><td>fee</td><td class="num"><code>commercialFee.minorUnits</code></td><td>payCurrency</td></tr>
+        <tr><td>net</td><td class="num"><code>received.minorUnits</code></td><td>USD</td></tr>
+        <tr><td>spread</td><td class="num"><code>fxConversion.minorUnits</code></td><td>USD; present iff <code>fx</code> is present</td></tr>
+      </tbody>
+    </table>
+    <p>Extending the v0.3 format (<code>docs/plan-v0.3.html</code> § "Share URL format"):</p>
+    <pre>/breakdown?gross=100000&amp;cur=CAD&amp;mkt=OTHER&amp;fx=0.7312&amp;on=2026-08-10&amp;sched=2026-05-28&amp;fee=4655&amp;net=66818&amp;spread=2784</pre>
+    <div class="callout">
+      <p class="label">Finding — the trap that makes the naive version wrong</p>
+      <p>
+        <code>spread</code> cannot be derived as <code>gross − fee − net</code>. <code>commercialFee</code>
+        is denominated in <code>payCurrency</code>, while <code>fxConversion</code> and
+        <code>received</code> are always USD (<code>engine.ts:104</code>, <code>:135</code>,
+        <code>:147</code>). The identity <code>gross = fee + net</code> only holds when
+        <code>payCurrency === "USD"</code> — for any FX case, <code>fee</code> and <code>net</code>
+        aren't even in the same currency, so subtracting one from the other is meaningless. All
+        three figures must be frozen independently; none can be reconstructed from the others.
+      </p>
+    </div>
+    <p>
+      <code>{gross, fee, spread, net}</code> is exactly the set that determines every number
+      <code>FeeBreakdown</code> renders — verified against <code>buildRows</code>
+      (<code>fee-breakdown.tsx</code>): the "converted to USD, before the spread" row is
+      <code>fxConversion.minorUnits + received.minorUnits</code> (L86), and the fee bar's fill
+      fraction is <code>grossPaid.minorUnits − commercialFee.minorUnits</code> (L55). Nothing else
+      in the component reads a number that isn't derivable from this trio plus the existing
+      <code>gross</code>.
+    </p>
+  </section>
+
+  <section>
+    <h2>Decode rules — <code>src/lib/share/breakdown-link.ts</code></h2>
+    <ul class="steps">
+      <li>Add an optional group to <code>SharedBreakdown</code> (L11-19):
+      <code>frozen?: { feeMinorUnits: number; netMinorUnits: number; spreadMinorUnits?: number }</code>.
+      <strong>Optional is what preserves backward compatibility</strong> — the existing v0.3-era
+      round-trip test (<code>breakdown-link.test.ts</code> L35-48, a link with no <code>fee</code>/
+      <code>net</code>/<code>spread</code> at all) must keep passing unchanged.</li>
+      <li>Treat the group atomically: <code>fee</code> and <code>net</code> present together, or both
+      absent. A partial group is a decode error ("fee and net must both be present or both be absent"),
+      so a half-tampered link fails loudly instead of half-verifying.</li>
+      <li>Validate <code>fee</code>/<code>net</code>/<code>spread</code> each as a non-negative
+      integer, reusing the shape of the existing <code>gross</code> validator (L67-70).</li>
+      <li>Couple <code>spread</code> to <code>fx</code> exactly as <code>fx</code>/<code>on</code> are
+      coupled today (L88-96): <code>spread</code> must be absent when
+      <code>cur === ACCOUNT_CURRENCY</code>, present whenever <code>fee</code>/<code>net</code> are
+      present and <code>cur</code> is not USD.</li>
+      <li>Extend <code>encodeBreakdownParams</code> (L42-54) to emit the trio when
+      <code>input.frozen</code> is present.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Page logic — <code>src/app/breakdown/page.tsx</code></h2>
+    <ul class="steps">
+      <li>In <code>resolve()</code>, keep the existing <code>settle()</code> call, then compare the
+      recomputed <code>commercialFee.minorUnits</code> / <code>received.minorUnits</code> /
+      <code>fxConversion?.minorUnits</code> against <code>shared.frozen</code> via
+      <code>hasFrozenDrift()</code> (<code>src/lib/share/drift.ts</code>). Any difference sets a
+      <code>drifted</code> flag.</li>
+      <li>The rendered <code>breakdown</code> is <strong>always</strong> the fresh recomputation —
+      <code>drifted</code> only controls whether the warning paragraph appears, never which numbers
+      are shown. There is no code path that displays <code>shared.frozen</code>'s values. If
+      <code>settle()</code> throws on the link's inputs, the page shows the same
+      <code>engine-error</code> it always has — frozen figures are not used as a fallback source of
+      truth, since there would be nothing to compare them against to establish they're genuine.</li>
+      <li><strong>Warning precedence:</strong> when <code>shared.frozen</code> is present, output
+      comparison is the <em>sole</em> drift signal and replaces the <code>sched</code>-date check for
+      that link. This is strictly better, not just different — it drops today's false positive where
+      PayPal's page date moves but no number actually changed for that transaction. The
+      <code>sched</code>-date check is kept only as the fallback for links with no
+      <code>frozen</code> group.</li>
+      <li><strong>Adjacent copy bug, fixed in passing:</strong> the current legacy-path warning
+      (L102-107) asserts "PayPal&apos;s rates have since been updated" from a bare
+      <code>!==</code>, so it fires with that exact wording even when <code>scheduleAsOf</code> is
+      <em>newer</em> than the deployed constant (a link created against a future-dated schedule
+      opened on an older deploy). Reword to be direction-agnostic: state that the schedule dates
+      differ, not that they moved in a particular direction.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Accepted limitations, recorded rather than hidden</h2>
+    <ul class="steps">
+      <li><strong><code>confidence</code> and <code>note</code> text still come from the current
+      engine, not the link.</strong> These are methodology caveats, not amounts, and freezing prose
+      into a URL is unreasonable. This is safe in practice because <code>FeeBreakdown</code> never
+      renders the engine's own <code>label</code> field — <code>buildRows</code> hardcodes its own
+      row labels (<code>fee-breakdown.tsx:67</code>, <code>:99</code>) — so the rate parenthetical
+      baked into <code>commercialFee.label</code> can never appear on screen, stale or otherwise.</li>
+      <li><strong>Pre-fix links carry no <code>frozen</code> group, so drift on them stays
+      undetectable</strong> — confirmed as the user's explicit choice rather than a gap this plan
+      papers over. That cohort is fixed in size (every link created before this ships) and shrinks
+      to zero as old links age out of use.</li>
+      <li><strong>A tampered <code>net</code>/<code>fee</code>/<code>spread</code> only ever produces
+      a spurious warning (present or absent), never a wrong displayed figure</strong> — by the
+      "Trust boundary" decision above, the displayed breakdown is always the fresh
+      <code>settle()</code> recomputation, so a forged frozen value can make the page warn when it
+      shouldn't (or stay silent when it should have warned, if someone forges figures that happen to
+      match), but it can never make the page <em>show</em> a number that isn't a genuine engine
+      output for the link's <code>gross</code>/<code>cur</code>/<code>mkt</code>/<code>fx</code>.
+      That residual — a forged link can suppress or fake a warning — is accepted: it's strictly no
+      worse than the original bug (silently wrong, no warning at all), and closing it fully would
+      need signing infrastructure (a server-side secret, an API route) disproportionate to what a
+      "not financial or legal advice" estimator warrants.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Files to change</h2>
+    <table class="files-table">
+      <thead><tr><th>Path</th><th>Change</th></tr></thead>
+      <tbody>
+        <tr><td>src/lib/share/breakdown-link.ts</td><td>Optional <code>frozen</code> group on <code>SharedBreakdown</code>; atomic present/absent validation; <code>spread</code> coupled to <code>fx</code>; encode the trio when present</td></tr>
+        <tr><td>src/lib/share/drift.ts <em>(new)</em></td><td><code>hasFrozenDrift()</code> — the only frozen-figures logic; a pure comparison, never a source of displayed data</td></tr>
+        <tr><td>src/app/breakdown/page.tsx</td><td><code>resolve()</code> always renders the recomputed <code>Breakdown</code>; <code>hasFrozenDrift()</code> only sets a <code>drifted</code> flag controlling the warning; legacy <code>sched</code>-date path kept as fallback for links with no frozen group, with direction-agnostic copy</td></tr>
+        <tr><td>src/app/page.tsx</td><td>L188-196 — populate <code>shared.frozen</code> from <code>calculation.breakdown</code> when building the object passed to <code>ShareLink</code></td></tr>
+        <tr><td>src/lib/share/breakdown-link.test.ts, src/lib/share/drift.test.ts <em>(new)</em></td><td>New round-trip, backward-compat, atomicity, and coupling cases; a regression test pinning the actual CAD 66809→66818 drift signal; a forged-figures test asserting drift detection doesn't validate provenance</td></tr>
+        <tr><td>docs/CHANGELOG.md, CLAUDE.md § "Project status"</td><td>Logged per CLAUDE.md § "Before pushing to remote"</td></tr>
+      </tbody>
+    </table>
+    <p>
+      <code>docs/plan-v0.3.html</code>'s § "Share URL format" is left as-is — this project keeps
+      superseded plan docs as historical record rather than editing them after the fact (see how
+      v0.4's own plan was never retroactively corrected here; this document is the correction,
+      standing alongside it).
+    </p>
+  </section>
+
+  <section>
+    <h2>Verification</h2>
+    <ul class="steps">
+      <li><code>pnpm test</code> — new cases in <code>breakdown-link.test.ts</code>: full round-trip
+      with the frozen trio (USD and CAD); the v0.3-era link <strong>without</strong> the trio still
+      decodes (backward compat, alongside the existing L35-48 case); partial-group rejection
+      (<code>fee</code> present without <code>net</code> and vice versa); <code>spread</code> present
+      with USD rejected; <code>spread</code> missing for non-USD rejected; negative/non-integer
+      rejection for each of the three.</li>
+      <li>A regression test pinning the actual bug: decode a hand-written pre-v0.4-shaped CAD link
+      carrying <code>net=66809</code> (the old FX-derived figure), confirm a fresh
+      <code>settle()</code> on its inputs yields <code>66818</code>, and assert
+      <code>hasFrozenDrift()</code> flags it. A companion test asserts a forged trio
+      (<code>fee=1&amp;net=99999</code>) also flags drift — confirming detection works without
+      confirming or needing provenance, per the "Trust boundary" decision.</li>
+      <li>A structural-identity test asserting <code>gross − fee === net</code> for USD-only cases —
+      kept as a test invariant rather than a decode-time validator, so decode logic stays simple and
+      the assertion still catches a future engine change.</li>
+      <li><code>pnpm typecheck</code>, <code>pnpm build</code>.</li>
+      <li><code>pnpm dev</code>, then the <code>claude-for-safari</code> skill (new tab, screenshot,
+      close the tab, delete screenshots when done) against: a freshly generated link (no warning); a
+      link with a genuinely stale frozen trio (warning, but the <strong>recomputed</strong> figure
+      renders, not the stale one); a link with a wildly forged trio like <code>fee=1&amp;net=99999</code>
+      (warning fires, but the amount shown is still the genuine recomputation — confirms the forgery
+      is inert); a legacy link with no trio (renders exactly as today, via the
+      <code>sched</code>-date fallback).</li>
+      <li>Confirm <code>git status</code> is clean of screenshots and temp files before pushing, per
+      <code>CLAUDE.md</code> § "Visual verification and debugging."</li>
+    </ul>
+  </section>
+
+  <footer class="sources">
+    <strong>Sources</strong>
+    <ul>
+      <li><code>src/app/breakdown/page.tsx</code>, <code>src/lib/share/breakdown-link.ts</code>,
+      <code>src/components/share-link.tsx</code>, <code>src/lib/fees/{engine,schedule,types}.ts</code>,
+      <code>src/components/fee-breakdown.tsx</code>, <code>src/app/page.tsx</code> — read in full
+      before drafting this plan</li>
+      <li><a href="plan-v0.4.html">docs/plan-v0.4.html</a> § "Minor units, because JPY has none" —
+      the "share links keep decoding" decision this plan extends to cover numerical drift, not just
+      decodability</li>
+      <li><a href="plan-v0.3.html">docs/plan-v0.3.html</a> § "Share URL format" — house style and the
+      original param set this plan extends</li>
+      <li>The <code>/code-review --fix PR 4</code> run that surfaced this finding and its verifier
+      sub-agent's confirmation of the 66809 → 66818 CAD divergence</li>
+      <li>The <code>/code-review --fix since last review</code> run against this plan's own first
+      implementation, which caught the unsigned-data trust issue described in "Revision" above and
+      "Trust boundary" — the source of this document's corrected design</li>
+    </ul>
+  </footer>
+
+</div>
+</body>
+</html>

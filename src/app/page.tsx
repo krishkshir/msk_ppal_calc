@@ -7,9 +7,15 @@ import { ModeToggle, type CalculatorMode } from "@/components/mode-toggle";
 import { ShareLink } from "@/components/share-link";
 import { describeCalculationError } from "@/lib/fees/errors";
 import { quote, settle } from "@/lib/fees/engine";
-import type { Breakdown } from "@/lib/fees/types";
-import type { BuyerMarket, Currency } from "@/lib/fees/types";
-import { formatMoney, parseDollarsToCents } from "@/lib/format";
+import { countrySpec, marketForCountry } from "@/lib/fees/markets";
+import {
+  ACCOUNT_CURRENCY,
+  REVIEW_INTERVAL_DAYS,
+  SCHEDULE_LAST_REVIEWED_ON,
+  isScheduleReviewOverdue,
+} from "@/lib/fees/schedule";
+import type { Breakdown, Currency } from "@/lib/fees/types";
+import { formatMoney, parseAmountToMinorUnits } from "@/lib/format";
 import { getFxRateToUSD, type FxRate } from "@/lib/fx/frankfurter";
 
 type FxState =
@@ -21,12 +27,26 @@ type FxState =
 export default function Home() {
   const [mode, setMode] = useState<CalculatorMode>("quote");
   const [amountInput, setAmountInput] = useState("");
-  const [buyerMarket, setBuyerMarket] = useState<BuyerMarket>("OTHER");
+  const [country, setCountry] = useState("US");
   const [payCurrency, setPayCurrency] = useState<Currency>("USD");
   const [fx, setFx] = useState<FxState>({ status: "not-needed" });
 
+  const buyerMarket = marketForCountry(country);
+
+  // Computed client-side after mount, not inline during render: this page
+  // is statically generated, so a bare `isScheduleReviewOverdue(new Date())`
+  // in the render body would bake in whatever was true at build time and
+  // never update until the next deploy — plus it would risk a hydration
+  // mismatch if the review-interval boundary falls between server render
+  // and client hydration. Defaulting to false until the effect runs means
+  // the banner only ever appears based on the visitor's actual clock.
+  const [scheduleReviewOverdue, setScheduleReviewOverdue] = useState(false);
   useEffect(() => {
-    if (payCurrency === "USD") {
+    setScheduleReviewOverdue(isScheduleReviewOverdue(new Date()));
+  }, []);
+
+  useEffect(() => {
+    if (payCurrency === ACCOUNT_CURRENCY) {
       setFx({ status: "not-needed" });
       return;
     }
@@ -49,22 +69,23 @@ export default function Home() {
     };
   }, [payCurrency]);
 
-  const amountCents = parseDollarsToCents(amountInput);
+  const amountCurrency = mode === "quote" ? ACCOUNT_CURRENCY : payCurrency;
+  const amountMinorUnits = parseAmountToMinorUnits(amountInput, amountCurrency);
 
   type CalculationResult =
     | { status: "ok"; breakdown: Breakdown; topLabel: string; footnote?: string }
     | { status: "error"; message: string };
 
   const calculation = useMemo((): CalculationResult | null => {
-    if (amountCents === null || amountCents === 0) return null;
-    if (payCurrency !== "USD" && fx.status !== "ready") return null;
+    if (amountMinorUnits === null || amountMinorUnits === 0) return null;
+    if (payCurrency !== ACCOUNT_CURRENCY && fx.status !== "ready") return null;
 
     const fxBaseRateToUSD = fx.status === "ready" ? fx.rate.rate : undefined;
 
     try {
       if (mode === "settle") {
         const breakdown = settle({
-          grossPaidCents: amountCents,
+          grossPaidMinorUnits: amountMinorUnits,
           payCurrency,
           buyerMarket,
           monthlyVolumeUSDCents: 0,
@@ -74,7 +95,7 @@ export default function Home() {
       }
 
       const { invoiceAmount, breakdown } = quote({
-        netTargetCents: amountCents,
+        netTargetCents: amountMinorUnits,
         payCurrency,
         buyerMarket,
         monthlyVolumeUSDCents: 0,
@@ -84,12 +105,12 @@ export default function Home() {
         status: "ok",
         breakdown,
         topLabel: "YOU INVOICE",
-        footnote: `Rounded up to guarantee at least your target of ${formatMoney(amountCents, "USD")} — invoice ${formatMoney(invoiceAmount.cents, invoiceAmount.currency)}.`,
+        footnote: `Rounded up to guarantee at least your target of ${formatMoney(amountMinorUnits, ACCOUNT_CURRENCY)} — invoice ${formatMoney(invoiceAmount.minorUnits, invoiceAmount.currency)}.`,
       };
     } catch (error) {
       return { status: "error", message: describeCalculationError(error) };
     }
-  }, [amountCents, mode, payCurrency, buyerMarket, fx]);
+  }, [amountMinorUnits, mode, payCurrency, buyerMarket, fx]);
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-16">
@@ -105,6 +126,14 @@ export default function Home() {
           currency-conversion spread — neither itemized to you or your client.
         </p>
       </header>
+
+      {scheduleReviewOverdue ? (
+        <p className="mb-8 rounded-md border border-brass/60 bg-brass/10 px-4 py-2 font-mono text-xs text-brass">
+          Fee schedule review is overdue — last checked against PayPal&apos;s published rates on{" "}
+          {SCHEDULE_LAST_REVIEWED_ON}, more than {REVIEW_INTERVAL_DAYS} days ago. Figures below may
+          be out of date; see docs/FEE-TABLE-REFRESH.md.
+        </p>
+      ) : null}
 
       <ModeToggle
         mode={mode}
@@ -123,19 +152,22 @@ export default function Home() {
           mode={mode}
           amountInput={amountInput}
           onAmountChange={setAmountInput}
-          buyerMarket={buyerMarket}
-          onBuyerMarketChange={setBuyerMarket}
+          country={country}
+          onCountryChange={(code) => {
+            setCountry(code);
+            setPayCurrency(countrySpec(code).defaultCurrency);
+          }}
           payCurrency={payCurrency}
           onPayCurrencyChange={setPayCurrency}
         />
       </div>
 
       <div className="mt-10">
-        {amountCents === null || amountCents === 0 ? (
+        {amountMinorUnits === null || amountMinorUnits === 0 ? (
           <p className="font-mono text-sm text-caption">Enter an amount to see the breakdown.</p>
-        ) : payCurrency !== "USD" && fx.status === "loading" ? (
+        ) : payCurrency !== ACCOUNT_CURRENCY && fx.status === "loading" ? (
           <p className="font-mono text-sm text-caption">Fetching today&apos;s {payCurrency}→USD rate…</p>
-        ) : payCurrency !== "USD" && fx.status === "error" ? (
+        ) : payCurrency !== ACCOUNT_CURRENCY && fx.status === "error" ? (
           <p className="font-mono text-sm text-oxide">
             Couldn&apos;t fetch today&apos;s {payCurrency}→USD rate: {fx.message}
           </p>
@@ -155,11 +187,16 @@ export default function Home() {
             ) : null}
             <ShareLink
               shared={{
-                grossPaidCents: calculation.breakdown.grossPaid.cents,
+                grossPaidMinorUnits: calculation.breakdown.grossPaid.minorUnits,
                 payCurrency: calculation.breakdown.grossPaid.currency,
                 buyerMarket,
                 fx: fx.status === "ready" ? { rate: fx.rate.rate, asOf: fx.rate.asOf } : undefined,
                 scheduleAsOf: calculation.breakdown.ratesAsOf,
+                frozen: {
+                  feeMinorUnits: calculation.breakdown.commercialFee.minorUnits,
+                  netMinorUnits: calculation.breakdown.received.minorUnits,
+                  spreadMinorUnits: calculation.breakdown.fxConversion?.minorUnits,
+                },
               }}
             />
           </>
