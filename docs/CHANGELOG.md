@@ -7,6 +7,10 @@ the substantive changes.
 
 ## Unreleased
 
+- Added a "Running locally" section to `README.md`: `pnpm install` /
+  `pnpm dev`, a note that no environment variables are required (the
+  Frankfurter FX lookup needs no API key), and the other `pnpm` commands
+  already listed in `CLAUDE.md`'s Commands section.
 - Code review of the v0.3 diff found and fixed 5 issues (`/code-review
   --fix`); typecheck/tests/build verified green before and after:
   - `src/components/share-link.tsx` — the clipboard write had no
