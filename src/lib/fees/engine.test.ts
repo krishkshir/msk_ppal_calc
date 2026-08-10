@@ -51,6 +51,28 @@ describe("settle — named regression cases (T1-T3, real completed transactions)
   });
 });
 
+describe("settle — USD structural identity", () => {
+  // For a same-currency (USD) payment, grossPaid and commercialFee are
+  // both already in USD, so gross - fee === net holds exactly. This is
+  // NOT true across a currency conversion, where commercialFee is in
+  // payCurrency but received is in USD — see
+  // docs/plan-share-link-drift.html's "trap that makes the naive version
+  // wrong". Kept as a test invariant (not a decode-time validator, which
+  // would need to duplicate this same currency-awareness) so a future
+  // engine change that breaks it is caught here.
+  it("gross - fee === net for a USD settlement", () => {
+    const result = settle({
+      grossPaidMinorUnits: 8300,
+      payCurrency: "USD",
+      buyerMarket: "OTHER",
+      monthlyVolumeUSDCents: 0,
+    });
+    expect(result.grossPaid.minorUnits - result.commercialFee.minorUnits).toBe(
+      result.received.minorUnits,
+    );
+  });
+});
+
 describe("settle — guards against a negative received amount", () => {
   // A transaction smaller than the fixed fee (e.g. a $0.10 payment against
   // a $0.31 fixed fee) would otherwise silently produce a negative

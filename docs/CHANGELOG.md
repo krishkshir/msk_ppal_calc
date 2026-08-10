@@ -7,6 +7,52 @@ the substantive changes.
 
 ## Unreleased
 
+- Fixed the share-link staleness-check bug found by the v0.4 code review
+  (deliberately left unfixed by that automated pass, since the correct
+  repair was a design decision — see `docs/plan-share-link-drift.html`).
+  `resolved.shared.scheduleAsOf !== SCHEDULE_EFFECTIVE_FROM` was the shared
+  page's only drift signal, but v0.4 changed the CAD fixed fee from
+  FX-derived to a flat lookup without touching `SCHEDULE_EFFECTIVE_FROM` at
+  all — a pre-v0.4 CAD link silently rendered a different `AMOUNT RECEIVED`
+  (66,809 → 66,818 minor units) with no warning.
+  - `src/lib/share/breakdown-link.ts` — `SharedBreakdown` gains an optional
+    `frozen: { feeMinorUnits, netMinorUnits, spreadMinorUnits? }`, encoded
+    as new `fee`/`net`/`spread` query params. Validated atomically (`fee`
+    and `net` travel together; `spread` is coupled to `cur` exactly as
+    `fx`/`on` already are) so a partially-tampered link fails to decode
+    rather than half-verifying. Absent on links created before this fix —
+    fully backward compatible, the existing v0.3-era round-trip test is
+    untouched.
+  - `src/lib/share/drift.ts` (new) — `hasFrozenDrift()` compares a fresh
+    `settle()` recomputation against the frozen trio; `applyFrozenFigures()`
+    overrides a recomputed `Breakdown`'s amounts (and `ratesAsOf`) with the
+    frozen ones on drift, so the client sees what they were actually
+    quoted, not a number that never applied to them, and the footer's
+    schedule date stops contradicting the warning above it (a v0.3-era
+    bug: the footer always printed the *current* schedule date even when
+    showing a stale link's recomputed figures);
+    `breakdownFromFrozenOnly()` synthesizes a full `Breakdown` from the
+    frozen figures alone, for the case where the current engine can no
+    longer accept the link's inputs at all — a shared link never becomes
+    completely unrenderable just because a future engine change rejects
+    its inputs.
+  - `src/app/breakdown/page.tsx` — `resolve()` now compares recomputed vs.
+    frozen figures and renders accordingly; the legacy `scheduleAsOf`
+    fallback (for pre-fix links, which carry no frozen figures) is kept
+    but reworded to be direction-agnostic — it previously said "PayPal's
+    rates have since been updated" even when `scheduleAsOf` was *newer*
+    than the deployed schedule.
+  - `src/app/page.tsx` — `ShareLink`'s `shared` prop now includes the
+    frozen trio, sourced from the same `calculation.breakdown` already
+    used to build the rest of the link.
+  - `src/lib/share/drift.test.ts` (new), `src/lib/share/breakdown-link.test.ts`,
+    `src/lib/fees/engine.test.ts` — new round-trip, atomicity, and
+    coupling cases for the frozen group; a regression test pinning the
+    actual CAD 66,809 → 66,818 divergence; a USD structural-identity test
+    (`gross − fee === net`, which does **not** hold across a currency
+    conversion — `commercialFee` and `received` are denominated
+    differently there, the trap that makes `spread` non-derivable from
+    the other three figures).
 - Implemented v0.4, per `docs/plan-v0.4.html`: currency coverage widened
   from 2 (USD, CAD) to the 22 currencies PayPal and Frankfurter both
   support, a country picker for buyer-market selection, a fee-table

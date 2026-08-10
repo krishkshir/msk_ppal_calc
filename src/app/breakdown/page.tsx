@@ -8,13 +8,14 @@ import { SCHEDULE_EFFECTIVE_FROM } from "@/lib/fees/schedule";
 import type { Breakdown } from "@/lib/fees/types";
 import { formatMoney } from "@/lib/format";
 import { decodeBreakdownParams, type SharedBreakdown } from "@/lib/share/breakdown-link";
+import { applyFrozenFigures, breakdownFromFrozenOnly, hasFrozenDrift } from "@/lib/share/drift";
 
 type SearchParams = { [key: string]: string | string[] | undefined };
 
 type Resolved =
   | { status: "decode-error"; reason: string }
   | { status: "engine-error"; message: string }
-  | { status: "ok"; breakdown: Breakdown; shared: SharedBreakdown };
+  | { status: "ok"; breakdown: Breakdown; shared: SharedBreakdown; drifted: boolean };
 
 // generateMetadata and the page component are both invoked for the same
 // request; cache() dedupes the decode+settle() work between them instead
@@ -23,7 +24,9 @@ const resolve = cache((raw: SearchParams): Resolved => {
   const decoded = decodeBreakdownParams(raw);
   if (!decoded.ok) return { status: "decode-error", reason: decoded.reason };
 
-  const { grossPaidMinorUnits, payCurrency, buyerMarket, fx } = decoded.value;
+  const shared = decoded.value;
+  const { grossPaidMinorUnits, payCurrency, buyerMarket, fx, frozen, scheduleAsOf } = shared;
+
   try {
     const breakdown = settle({
       grossPaidMinorUnits,
@@ -32,8 +35,29 @@ const resolve = cache((raw: SearchParams): Resolved => {
       monthlyVolumeUSDCents: 0,
       fxBaseRateToUSD: fx?.rate,
     });
-    return { status: "ok", breakdown, shared: decoded.value };
+
+    if (!frozen || !hasFrozenDrift(breakdown, frozen)) {
+      return { status: "ok", breakdown, shared, drifted: false };
+    }
+    return {
+      status: "ok",
+      breakdown: applyFrozenFigures(breakdown, frozen, scheduleAsOf),
+      shared,
+      drifted: true,
+    };
   } catch (error) {
+    // The current engine may no longer accept inputs a pre-fix link once
+    // settled successfully. With frozen figures on hand, the link can
+    // still render what the client was originally quoted instead of
+    // becoming completely unrenderable — see docs/plan-share-link-drift.html.
+    if (frozen) {
+      return {
+        status: "ok",
+        breakdown: breakdownFromFrozenOnly({ ...shared, frozen }),
+        shared,
+        drifted: true,
+      };
+    }
     return { status: "engine-error", message: describeCalculationError(error) };
   }
 });
@@ -99,11 +123,19 @@ export default async function BreakdownPage(props: PageProps<"/breakdown">) {
             </p>
           ) : null}
 
-          {resolved.shared.scheduleAsOf !== SCHEDULE_EFFECTIVE_FROM ? (
+          {resolved.shared.frozen ? (
+            resolved.drifted ? (
+              <p className="mt-4 border-t border-rule pt-3 font-mono text-xs text-brass">
+                These figures are what this link originally showed, computed under the fee
+                schedule as of {resolved.shared.scheduleAsOf}. Our current schedule would compute
+                this payment differently.
+              </p>
+            ) : null
+          ) : resolved.shared.scheduleAsOf !== SCHEDULE_EFFECTIVE_FROM ? (
             <p className="mt-4 border-t border-rule pt-3 font-mono text-xs text-brass">
               These figures were computed under the fee schedule as of{" "}
-              {resolved.shared.scheduleAsOf}. PayPal&apos;s rates have since been updated; the
-              numbers above reflect the current schedule.
+              {resolved.shared.scheduleAsOf}, which differs from our current schedule (
+              {SCHEDULE_EFFECTIVE_FROM}). The numbers above reflect the current schedule.
             </p>
           ) : null}
 

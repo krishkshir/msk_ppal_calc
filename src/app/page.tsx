@@ -192,6 +192,11 @@ export default function Home() {
                 buyerMarket,
                 fx: fx.status === "ready" ? { rate: fx.rate.rate, asOf: fx.rate.asOf } : undefined,
                 scheduleAsOf: calculation.breakdown.ratesAsOf,
+                frozen: {
+                  feeMinorUnits: calculation.breakdown.commercialFee.minorUnits,
+                  netMinorUnits: calculation.breakdown.received.minorUnits,
+                  spreadMinorUnits: calculation.breakdown.fxConversion?.minorUnits,
+                },
               }}
             />
           </>

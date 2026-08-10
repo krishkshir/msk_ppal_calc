@@ -56,6 +56,20 @@ staleness banner on `src/app/page.tsx` only (not the client-facing
 checklist this operationalizes. See `docs/plan-v0.4.html` for the
 implementation plan this was built from.
 
+The share-link staleness check is fixed: v0.4's own code review found that
+`scheduleAsOf` alone can't detect drift caused by a *calculation-methodology*
+change (v0.4's CAD fixed fee moving from FX-derived to a flat lookup left
+`SCHEDULE_EFFECTIVE_FROM` untouched, so a pre-v0.4 CAD share link silently
+rendered a different received amount). `SharedBreakdown` (`src/lib/share/breakdown-link.ts`)
+now optionally freezes the computed commercial fee, FX spread, and received
+amount (`fee`/`net`/`spread` query params) alongside the inputs; the new
+`src/lib/share/drift.ts` compares a fresh recomputation against them and, on
+any mismatch, renders the frozen originals — what the client was actually
+quoted — with a note, rather than the recomputed figures. Links created
+before this fix carry no frozen figures and keep falling back to the old
+`scheduleAsOf` comparison (now worded direction-agnostically). See
+`docs/plan-share-link-drift.html` for the design this was built from.
+
 Commands (via `pnpm`):
 
 - `pnpm install` — install dependencies
