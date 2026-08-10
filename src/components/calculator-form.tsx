@@ -1,5 +1,7 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CURRENCIES } from "@/lib/fees/currencies";
+import { COUNTRIES, marketForCountry } from "@/lib/fees/markets";
 import type { BuyerMarket, Currency } from "@/lib/fees/types";
 import type { CalculatorMode } from "@/components/mode-toggle";
 
@@ -7,22 +9,17 @@ interface CalculatorFormProps {
   mode: CalculatorMode;
   amountInput: string;
   onAmountChange: (value: string) => void;
-  buyerMarket: BuyerMarket;
-  onBuyerMarketChange: (value: BuyerMarket) => void;
+  country: string;
+  onCountryChange: (code: string) => void;
   payCurrency: Currency;
   onPayCurrencyChange: (value: Currency) => void;
 }
 
-const BUYER_MARKETS: { value: BuyerMarket; label: string }[] = [
-  { value: "OTHER", label: "All other markets" },
-  { value: "UAE", label: "UAE" },
-  { value: "EEA_UK", label: "EEA & UK" },
-];
-
-const CURRENCIES: { value: Currency; label: string }[] = [
-  { value: "USD", label: "USD" },
-  { value: "CAD", label: "CAD" },
-];
+const MARKET_LABEL: Record<BuyerMarket, string> = {
+  OTHER: "All other markets",
+  UAE: "UAE",
+  EEA_UK: "EEA & UK",
+};
 
 const fieldLabelClass = "font-mono text-xs tracking-[0.08em] text-caption uppercase";
 const selectClass =
@@ -32,13 +29,14 @@ export function CalculatorForm({
   mode,
   amountInput,
   onAmountChange,
-  buyerMarket,
-  onBuyerMarketChange,
+  country,
+  onCountryChange,
   payCurrency,
   onPayCurrencyChange,
 }: CalculatorFormProps) {
   const amountLabel = mode === "quote" ? "You want to net" : "Client paid";
   const amountSuffix = mode === "quote" ? "USD" : payCurrency;
+  const buyerMarket = marketForCountry(country);
 
   return (
     <div className="grid grid-cols-1 gap-6 sm:grid-cols-[2fr_1fr_1fr]">
@@ -60,21 +58,24 @@ export function CalculatorForm({
       </div>
 
       <div>
-        <Label htmlFor="buyer-market" className={fieldLabelClass}>
+        <Label htmlFor="country" className={fieldLabelClass}>
           Client&apos;s location
         </Label>
         <select
-          id="buyer-market"
-          value={buyerMarket}
-          onChange={(event) => onBuyerMarketChange(event.target.value as BuyerMarket)}
+          id="country"
+          value={country}
+          onChange={(event) => onCountryChange(event.target.value)}
           className={`mt-1.5 ${selectClass}`}
         >
-          {BUYER_MARKETS.map(({ value, label }) => (
-            <option key={value} value={value}>
-              {label}
+          {COUNTRIES.map(({ code, name }) => (
+            <option key={code} value={code}>
+              {name}
             </option>
           ))}
         </select>
+        <p className="mt-1 font-mono text-xs text-caption">
+          PayPal market: {MARKET_LABEL[buyerMarket]}
+        </p>
       </div>
 
       <div>
@@ -87,8 +88,8 @@ export function CalculatorForm({
           onChange={(event) => onPayCurrencyChange(event.target.value as Currency)}
           className={`mt-1.5 ${selectClass}`}
         >
-          {CURRENCIES.map(({ value, label }) => (
-            <option key={value} value={value}>
+          {CURRENCIES.map(({ code, label }) => (
+            <option key={code} value={code}>
               {label}
             </option>
           ))}

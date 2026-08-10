@@ -1,3 +1,5 @@
+import { CURRENCIES, isCurrency } from "../fees/currencies";
+import { BUYER_MARKETS, isBuyerMarket } from "../fees/markets";
 import { ACCOUNT_CURRENCY } from "../fees/schedule";
 import type { BuyerMarket, Currency } from "../fees/types";
 
@@ -7,7 +9,7 @@ import type { BuyerMarket, Currency } from "../fees/types";
  * page — see docs/plan-v0.3.html "Share URL format".
  */
 export interface SharedBreakdown {
-  grossPaidCents: number;
+  grossPaidMinorUnits: number;
   payCurrency: Currency;
   buyerMarket: BuyerMarket;
   /** Absent iff payCurrency === ACCOUNT_CURRENCY. */
@@ -20,17 +22,7 @@ export type DecodeResult =
   | { ok: true; value: SharedBreakdown }
   | { ok: false; reason: string };
 
-const CURRENCIES: readonly Currency[] = ["USD", "CAD"];
-const BUYER_MARKETS: readonly BuyerMarket[] = ["UAE", "EEA_UK", "OTHER"];
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
-function isCurrency(value: string): value is Currency {
-  return (CURRENCIES as string[]).includes(value);
-}
-
-function isBuyerMarket(value: string): value is BuyerMarket {
-  return (BUYER_MARKETS as string[]).includes(value);
-}
 
 function isValidDateString(value: string): boolean {
   // Date.parse rolls an out-of-range day into the next month (e.g.
@@ -49,7 +41,7 @@ function firstValue(raw: string | string[] | undefined): string | undefined {
 
 export function encodeBreakdownParams(input: SharedBreakdown): string {
   const params = new URLSearchParams({
-    gross: String(input.grossPaidCents),
+    gross: String(input.grossPaidMinorUnits),
     cur: input.payCurrency,
     mkt: input.buyerMarket,
     sched: input.scheduleAsOf,
@@ -72,13 +64,18 @@ export function decodeBreakdownParams(
   const sched = firstValue(raw.sched);
 
   if (gross === undefined || gross.trim() === "") return { ok: false, reason: "gross is missing" };
-  const grossPaidCents = Number(gross);
-  if (!Number.isInteger(grossPaidCents) || grossPaidCents < 0) {
+  const grossPaidMinorUnits = Number(gross);
+  if (!Number.isInteger(grossPaidMinorUnits) || grossPaidMinorUnits < 0) {
     return { ok: false, reason: "gross must be a non-negative integer" };
   }
 
   if (cur === undefined) return { ok: false, reason: "cur is missing" };
-  if (!isCurrency(cur)) return { ok: false, reason: `cur must be one of ${CURRENCIES.join(", ")}` };
+  if (!isCurrency(cur)) {
+    return {
+      ok: false,
+      reason: `cur must be one of ${CURRENCIES.map((c) => c.code).join(", ")}`,
+    };
+  }
 
   if (mkt === undefined) return { ok: false, reason: "mkt is missing" };
   if (!isBuyerMarket(mkt)) {
@@ -94,7 +91,7 @@ export function decodeBreakdownParams(
     }
     return {
       ok: true,
-      value: { grossPaidCents, payCurrency: cur, buyerMarket: mkt, scheduleAsOf: sched },
+      value: { grossPaidMinorUnits, payCurrency: cur, buyerMarket: mkt, scheduleAsOf: sched },
     };
   }
 
@@ -109,7 +106,7 @@ export function decodeBreakdownParams(
   return {
     ok: true,
     value: {
-      grossPaidCents,
+      grossPaidMinorUnits,
       payCurrency: cur,
       buyerMarket: mkt,
       fx: { rate, asOf: on },

@@ -1,3 +1,4 @@
+import { ACCOUNT_CURRENCY } from "@/lib/fees/schedule";
 import type { Currency } from "@/lib/fees/types";
 
 const FRANKFURTER_BASE_URL = "https://api.frankfurter.dev/v2/rates";
@@ -24,7 +25,9 @@ interface FrankfurterEntry {
  * already in the units the engine wants (USD per 1 unit of payCurrency),
  * with no inversion needed.
  */
-export async function getFxRateToUSD(payCurrency: Exclude<Currency, "USD">): Promise<FxRate> {
+export async function getFxRateToUSD(
+  payCurrency: Exclude<Currency, typeof ACCOUNT_CURRENCY>,
+): Promise<FxRate> {
   const url = `${FRANKFURTER_BASE_URL}?base=${payCurrency}&quotes=USD`;
   const response = await fetch(url);
   if (!response.ok) {

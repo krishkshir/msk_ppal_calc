@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { decodeBreakdownParams, encodeBreakdownParams, type SharedBreakdown } from "./breakdown-link";
+import { CURRENCIES } from "../fees/currencies";
+import { BUYER_MARKETS } from "../fees/markets";
 
 describe("encodeBreakdownParams / decodeBreakdownParams — round trip", () => {
   it("USD (no FX): encodes without fx/on, decodes back to the same value", () => {
     const input: SharedBreakdown = {
-      grossPaidCents: 10_000,
+      grossPaidMinorUnits: 10_000,
       payCurrency: "USD",
       buyerMarket: "OTHER",
       scheduleAsOf: "2026-05-28",
@@ -19,7 +21,7 @@ describe("encodeBreakdownParams / decodeBreakdownParams — round trip", () => {
 
   it("CAD (with FX): round-trips the frozen rate and its date", () => {
     const input: SharedBreakdown = {
-      grossPaidCents: 100_000,
+      grossPaidMinorUnits: 100_000,
       payCurrency: "CAD",
       buyerMarket: "OTHER",
       fx: { rate: 0.7312, asOf: "2026-08-10" },
@@ -28,6 +30,21 @@ describe("encodeBreakdownParams / decodeBreakdownParams — round trip", () => {
     const query = encodeBreakdownParams(input);
     const decoded = decodeBreakdownParams(Object.fromEntries(new URLSearchParams(query)));
     expect(decoded).toEqual({ ok: true, value: input });
+  });
+
+  it("a v0.3-era link (only USD/CAD ever existed) still decodes under the widened v0.4 currency set", () => {
+    const query = "gross=100000&cur=CAD&mkt=OTHER&sched=2026-05-28&fx=0.7312&on=2026-08-10";
+    const decoded = decodeBreakdownParams(Object.fromEntries(new URLSearchParams(query)));
+    expect(decoded).toEqual({
+      ok: true,
+      value: {
+        grossPaidMinorUnits: 100_000,
+        payCurrency: "CAD",
+        buyerMarket: "OTHER",
+        fx: { rate: 0.7312, asOf: "2026-08-10" },
+        scheduleAsOf: "2026-05-28",
+      },
+    });
   });
 });
 
@@ -56,7 +73,7 @@ describe("decodeBreakdownParams — rejects malformed or tampered input", () => 
   it("rejects an unknown currency", () => {
     expect(decodeBreakdownParams({ ...valid, cur: "XXX" })).toEqual({
       ok: false,
-      reason: "cur must be one of USD, CAD",
+      reason: `cur must be one of ${CURRENCIES.map((c) => c.code).join(", ")}`,
     });
   });
 
@@ -68,7 +85,7 @@ describe("decodeBreakdownParams — rejects malformed or tampered input", () => 
   it("rejects an unknown buyer market", () => {
     expect(decodeBreakdownParams({ ...valid, mkt: "MARS" })).toEqual({
       ok: false,
-      reason: "mkt must be one of UAE, EEA_UK, OTHER",
+      reason: `mkt must be one of ${BUYER_MARKETS.join(", ")}`,
     });
   });
 
@@ -129,7 +146,7 @@ describe("decodeBreakdownParams — rejects malformed or tampered input", () => 
     expect(decodeBreakdownParams({ ...valid, gross: ["10000", "99999"] })).toEqual({
       ok: true,
       value: {
-        grossPaidCents: 10_000,
+        grossPaidMinorUnits: 10_000,
         payCurrency: "USD",
         buyerMarket: "OTHER",
         scheduleAsOf: "2026-05-28",

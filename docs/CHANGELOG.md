@@ -7,6 +7,80 @@ the substantive changes.
 
 ## Unreleased
 
+- Implemented v0.4, per `docs/plan-v0.4.html`: currency coverage widened
+  from 2 (USD, CAD) to the 22 currencies PayPal and Frankfurter both
+  support, a country picker for buyer-market selection, a fee-table
+  refresh workflow, and `CONSTITUTION.md` open question #1 resolved.
+  - `src/lib/fees/currencies.ts` (new) — 22-currency table (USD, CAD,
+    EUR, GBP, CHF, AUD, NZD, SGD, HKD, JPY, SEK, NOK, DKK, PLN, CZK, HUF,
+    ILS, MXN, BRL, MYR, PHP, THB); TWD and RUB are in PayPal's published
+    table but excluded here since Frankfurter/ECB has no rate for
+    either. Each entry carries a `fixedFeeMinorUnits`, looked up
+    directly by currency — the fixed fee is no longer derived from the
+    USD figure via the FX rate, which is what open question #1 asked
+    for. Only USD (`$0.31`, the T1–T3 observed figure, not PayPal's
+    published `$0.30`) is `"observed"`; every other currency is PayPal's
+    published figure, `"unvalidated"`.
+  - `src/lib/fees/markets.ts` (new) — `BuyerMarket` derived from
+    `BUYER_MARKETS`; a `COUNTRIES` table (46 entries: UAE, the 31-country
+    EEA+UK set, 13 representative countries for the remaining supported
+    currencies, and an "Other / not listed" catch-all) with
+    `marketForCountry()`. Deliberately includes Switzerland mapped to
+    `OTHER`, not `EEA_UK` — it's EFTA, not EEA, exactly the
+    classification mistake a country picker exists to prevent over a
+    direct three-bucket dropdown.
+  - `src/lib/fees/engine.ts` — the fixed fee is now
+    `currencySpec(payCurrency).fixedFeeMinorUnits`, not derived via FX;
+    `resolveFixedFeeCents` was removed as dead code. Fixed a latent bug
+    this surfaced: `fxBaseRateToUSD` is USD per 1 *major* unit of the
+    pay currency, but the engine works in minor units, so converting
+    between USD cents and a foreign minor unit needs a
+    `10 ** (usdExponent - payCurrencyExponent)` scale factor
+    (`fxRateInMinorUnits`) — without it, a zero-decimal currency like
+    JPY would settle 100x too small. Invisible through v0.1–v0.3 since
+    CAD (exponent 2, same as USD) was the only non-USD currency in
+    scope.
+  - `Money.cents`/`FeeLineItem.cents` renamed to `minorUnits` throughout
+    (`types.ts`, `engine.ts`, `format.ts`, `breakdown-link.ts`, both
+    UI routes) — "cents" stopped being accurate once JPY (minor-unit
+    exponent 0) was in scope. `src/lib/format.ts`'s formatters are now
+    keyed by each currency's `minorUnitExponent` instead of a hardcoded
+    2 and `/100`. The share URL's query-param keys and encoding are
+    unchanged, so v0.3-era links still decode.
+  - `src/lib/share/breakdown-link.ts` and
+    `src/components/calculator-form.tsx` now source their
+    currency/market lists from `currencies.ts`/`markets.ts` instead of
+    hand-duplicated arrays — the hazard flagged when v0.3 shipped.
+  - `src/lib/fees/schedule.ts` gained `SCHEDULE_LAST_REVIEWED_ON` and
+    `isScheduleReviewOverdue()` (92-day interval); surfaced as a banner
+    on `src/app/page.tsx` only, not the client-facing `/breakdown`
+    route. `docs/FEE-TABLE-REFRESH.md` (new) is the checklist this
+    operationalizes.
+  - Regression numbers that changed deliberately: the Canadian scenario
+    in `engine.test.ts` moves from `4667 / 2784 / 66_809` to
+    `4655 / 2784 / 66_818` (CAD's published $0.30 fixed fee vs. the old
+    FX-derived ~$0.42 estimate). New tests: a JPY minor-unit-scaling
+    regression, a JPY round-trip sweep, `isScheduleReviewOverdue`
+    boundary cases, and currency-metadata checks alongside the existing
+    schedule-metadata ones.
+- Added `docs/plan-v0.4.html`: implementation proposal for the fourth
+  roadmap milestone — broader currency and buyer-market coverage plus a
+  fee-table refresh workflow, per `docs/CONSTITUTION.md`. Three scope
+  decisions were confirmed with the user before drafting: (1) support all
+  22 currencies that appear in both PayPal's published fixed-fee table and
+  Frankfurter's rate list, including JPY, which has no minor decimal unit
+  and requires the codebase's hardcoded "divide by 100" formatting
+  assumption to become currency-aware; (2) replace the buyer-market
+  dropdown with a country picker that maps a selected country to the
+  correct PayPal market bucket, rather than asking Ms. K to classify UAE /
+  EEA & UK / all other markets herself; (3) the refresh workflow is a
+  written checklist plus review-date metadata on the schedule plus a
+  staleness note surfaced in Ms. K's own calculator view (not the
+  client-facing shared breakdown). The plan also resolves
+  `CONSTITUTION.md`'s open question #1 (the non-USD fixed-fee table) by
+  switching the engine from FX-deriving each non-USD fixed fee to a direct
+  per-currency lookup of PayPal's published figures — open question #2 (the
+  ~0.22pp rate gap) stays parked at the user's direction and is untouched.
 - Added a "Running locally" section to `README.md`: `pnpm install` /
   `pnpm dev`, a note that no environment variables are required (the
   Frankfurter FX lookup needs no API key), and the other `pnpm` commands

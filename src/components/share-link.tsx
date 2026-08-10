@@ -18,7 +18,7 @@ export function ShareLink({ shared }: ShareLinkProps) {
     // Depend on the encoded fields, not `shared`'s object identity — the
     // parent passes a fresh literal every render, which would otherwise
     // reset `copied` back to false on any unrelated parent re-render.
-  }, [shared.grossPaidCents, shared.payCurrency, shared.buyerMarket, shared.fx?.rate, shared.fx?.asOf, shared.scheduleAsOf]);
+  }, [shared.grossPaidMinorUnits, shared.payCurrency, shared.buyerMarket, shared.fx?.rate, shared.fx?.asOf, shared.scheduleAsOf]);
 
   if (!url) return null;
 

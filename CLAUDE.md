@@ -38,8 +38,23 @@ relabel the final row "AMOUNT RECEIVED" for a client audience; the fee
 engine itself is untouched. See `docs/plan-v0.3.html` for the
 implementation plan this was built from.
 
-v0.4 (broader currency/buyer-market coverage, resolving the two remaining
-open questions) is not built yet, per the roadmap in `docs/CONSTITUTION.md`.
+v0.4 is implemented: currency coverage widened from 2 (USD, CAD) to the
+22 currencies PayPal and Frankfurter both support, including JPY — the
+first zero-decimal currency this project handles. `src/lib/fees/currencies.ts`
+(new) is now the source of truth for both the `Currency` union and each
+currency's fixed fee, looked up directly rather than derived from the
+USD figure via the FX rate as v0.1–v0.3 did; `src/lib/fees/markets.ts`
+(new) is the source of truth for `BuyerMarket` plus a `COUNTRIES` table
+driving a country picker in `src/components/calculator-form.tsx` (see
+"Domain model" below for the Switzerland classification trap this
+replaces). `Money.cents`/`FeeLineItem.cents` were renamed to
+`minorUnits` throughout, since "cents" stopped being accurate once JPY
+(minor-unit exponent 0) was in scope. `src/lib/fees/schedule.ts` gained
+`SCHEDULE_LAST_REVIEWED_ON` / `isScheduleReviewOverdue()`, surfaced as a
+staleness banner on `src/app/page.tsx` only (not the client-facing
+`/breakdown` route) — see `docs/FEE-TABLE-REFRESH.md` for the review
+checklist this operationalizes. See `docs/plan-v0.4.html` for the
+implementation plan this was built from.
 
 Commands (via `pnpm`):
 
@@ -110,16 +125,38 @@ doc-only and fee-model-correction changes, not just code.
   rate is always the $0–$3,000 tier (4.625% + $0.31, observed), regardless
   of volume. Don't build UI or logic that assumes she might reach those
   tiers without this being revisited.
-- Two figures in `docs/CONSTITUTION.md` remain explicitly unresolved: the
-  fixed-fee table for currencies other than USD (source of truth confirmed
-  as [PayPal Business fees (AE)](https://www.paypal.com/ae/business/paypal-business-fees),
-  extracted into `docs/CONSTITUTION.md` § "Fixed fee by currency
-  (published)", but not yet validated against a real non-USD transaction —
-  filling `schedule.ts` in from it is v0.4 work), and an unexplained
-  ~0.22pp gap between the observed 4.625% rate and PayPal's published
-  4.40% figure (parked at the user's direction, not being pursued). Don't
-  silently resolve either while implementing — carry the "estimate"
-  framing into the UI.
+- The buyer-market picker is country-based, not a direct UAE/EEA_UK/OTHER
+  choice — Ms. K picks a country, `src/lib/fees/markets.ts`'s
+  `marketForCountry()` resolves the PayPal bucket. This exists specifically
+  because **Switzerland is EFTA, not EEA** — a Swiss client is `OTHER`
+  (4.625%), not `EEA_UK` (4.69%), which is an easy classification mistake
+  a direct bucket dropdown invites and a country name doesn't.
+- One figure in `docs/CONSTITUTION.md` remains explicitly unresolved: an
+  unexplained ~0.22pp gap between the observed 4.625% rate and PayPal's
+  published 4.40% figure (parked at the user's direction, not being
+  pursued). Don't silently resolve it while implementing — carry the
+  "estimate" framing into the UI.
+- The non-USD fixed-fee table (the other previously-open question) is
+  resolved as of v0.4: `src/lib/fees/currencies.ts` looks up each
+  currency's fixed fee directly from PayPal's published table
+  ([PayPal Business fees (AE)](https://www.paypal.com/ae/business/paypal-business-fees)),
+  rather than deriving it from the USD figure via the FX rate. Only USD's
+  figure is `"observed"` (the $0.31 from T1–T3); every other currency's
+  is `"unvalidated"` — resolving *where the number comes from* isn't the
+  same as *validating it*, and the UI must keep saying so.
+- **JPY, and any future zero-decimal currency, needs minor-unit-aware FX
+  scaling — this was a latent bug until v0.4 added a second currency
+  exponent to test against.** `fxBaseRateToUSD` is always USD per 1
+  *major* unit of the pay currency (e.g. USD per 1 yen), but the engine
+  operates entirely in *minor* units. Multiplying a minor-unit amount
+  directly by that rate is only correct when the pay currency's
+  minor-unit exponent matches USD's (2) — true for every currency here
+  except JPY (exponent 0). `src/lib/fees/engine.ts`'s
+  `fxRateInMinorUnits` scales the rate by `10 ** (usdExponent -
+  payCurrencyExponent)` before applying it; skipping that scaling
+  silently produces amounts off by a power of ten. This was invisible
+  through v0.1–v0.3 because CAD (exponent 2, same as USD) was the only
+  non-USD currency in scope.
 
 ## Stack
 

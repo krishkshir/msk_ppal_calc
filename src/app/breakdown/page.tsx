@@ -23,10 +23,10 @@ const resolve = cache((raw: SearchParams): Resolved => {
   const decoded = decodeBreakdownParams(raw);
   if (!decoded.ok) return { status: "decode-error", reason: decoded.reason };
 
-  const { grossPaidCents, payCurrency, buyerMarket, fx } = decoded.value;
+  const { grossPaidMinorUnits, payCurrency, buyerMarket, fx } = decoded.value;
   try {
     const breakdown = settle({
-      grossPaidCents,
+      grossPaidMinorUnits,
       payCurrency,
       buyerMarket,
       monthlyVolumeUSDCents: 0,
@@ -47,7 +47,7 @@ export async function generateMetadata(
   }
   const { grossPaid, received } = resolved.breakdown;
   return {
-    title: `Where your payment went — ${formatMoney(received.cents, received.currency)} received of ${formatMoney(grossPaid.cents, grossPaid.currency)}`,
+    title: `Where your payment went — ${formatMoney(received.minorUnits, received.currency)} received of ${formatMoney(grossPaid.minorUnits, grossPaid.currency)}`,
     description:
       "A breakdown of PayPal's transaction fee and any currency-conversion spread on this payment.",
   };

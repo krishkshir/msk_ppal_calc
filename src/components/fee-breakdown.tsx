@@ -52,21 +52,21 @@ function safeDivide(numerator: number, denominator: number): number {
 
 function buildRows(breakdown: Breakdown, topLabel: string, receivedLabel: string): Row[] {
   const { grossPaid, commercialFee, fxConversion, received } = breakdown;
-  const netInPayCurrency = grossPaid.cents - commercialFee.cents;
+  const netInPayCurrency = grossPaid.minorUnits - commercialFee.minorUnits;
 
   const rows: Row[] = [
     {
       key: "gross",
       label: topLabel,
-      amount: formatMoney(grossPaid.cents, grossPaid.currency),
+      amount: formatMoney(grossPaid.minorUnits, grossPaid.currency),
       fraction: 1,
       tone: "gross",
     },
     {
       key: "fee",
       label: "− Cross-border fee",
-      amount: `− ${formatAmount(commercialFee.cents)}`,
-      fraction: safeDivide(netInPayCurrency, grossPaid.cents),
+      amount: `− ${formatAmount(commercialFee.minorUnits, commercialFee.currency)}`,
+      fraction: safeDivide(netInPayCurrency, grossPaid.minorUnits),
       tone: "deduction",
       badge: { confidence: commercialFee.confidence, note: commercialFee.note },
     },
@@ -76,19 +76,19 @@ function buildRows(breakdown: Breakdown, topLabel: string, receivedLabel: string
     rows.push({
       key: "result",
       label: receivedLabel,
-      amount: formatMoney(received.cents, received.currency),
-      fraction: safeDivide(received.cents, grossPaid.cents),
+      amount: formatMoney(received.minorUnits, received.currency),
+      fraction: safeDivide(received.minorUnits, grossPaid.minorUnits),
       tone: "result",
     });
     return rows;
   }
 
-  const atBaseRateCents = fxConversion.cents + received.cents;
+  const atBaseRateMinorUnits = fxConversion.minorUnits + received.minorUnits;
   rows.push(
     {
       key: "converted",
       label: "Converted to USD, before the spread",
-      amount: formatMoney(atBaseRateCents, received.currency),
+      amount: formatMoney(atBaseRateMinorUnits, received.currency),
       fraction: 1,
       tone: "transition",
       dividerAbove:
@@ -97,16 +97,16 @@ function buildRows(breakdown: Breakdown, topLabel: string, receivedLabel: string
     {
       key: "fx",
       label: "− Currency conversion spread",
-      amount: `− ${formatAmount(fxConversion.cents)}`,
-      fraction: safeDivide(received.cents, atBaseRateCents),
+      amount: `− ${formatAmount(fxConversion.minorUnits, fxConversion.currency)}`,
+      fraction: safeDivide(received.minorUnits, atBaseRateMinorUnits),
       tone: "deduction",
       badge: { confidence: fxConversion.confidence, note: fxConversion.note },
     },
     {
       key: "result",
       label: receivedLabel,
-      amount: formatMoney(received.cents, received.currency),
-      fraction: safeDivide(received.cents, atBaseRateCents),
+      amount: formatMoney(received.minorUnits, received.currency),
+      fraction: safeDivide(received.minorUnits, atBaseRateMinorUnits),
       tone: "result",
     },
   );
