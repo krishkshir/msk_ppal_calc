@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { CalculatorForm } from "@/components/calculator-form";
 import { FeeBreakdown } from "@/components/fee-breakdown";
 import { ModeToggle, type CalculatorMode } from "@/components/mode-toggle";
+import { ShareLink } from "@/components/share-link";
+import { describeCalculationError } from "@/lib/fees/errors";
 import { quote, settle } from "@/lib/fees/engine";
 import type { Breakdown } from "@/lib/fees/types";
 import type { BuyerMarket, Currency } from "@/lib/fees/types";
@@ -15,15 +17,6 @@ type FxState =
   | { status: "loading" }
   | { status: "ready"; rate: FxRate }
   | { status: "error"; message: string };
-
-/** Translates engine.ts's thrown Error messages (written for developers) into plain language. */
-function describeCalculationError(error: unknown): string {
-  const message = error instanceof Error ? error.message : "";
-  if (message.includes("cannot return a negative received amount")) {
-    return "That amount is too small — PayPal's fee alone would exceed it. Try a larger amount.";
-  }
-  return "That amount can't be calculated right now.";
-}
 
 export default function Home() {
   const [mode, setMode] = useState<CalculatorMode>("quote");
@@ -160,6 +153,15 @@ export default function Home() {
                 FX rate as of {fx.rate.asOf} ({payCurrency}→USD {fx.rate.rate})
               </p>
             ) : null}
+            <ShareLink
+              shared={{
+                grossPaidCents: calculation.breakdown.grossPaid.cents,
+                payCurrency: calculation.breakdown.grossPaid.currency,
+                buyerMarket,
+                fx: fx.status === "ready" ? { rate: fx.rate.rate, asOf: fx.rate.asOf } : undefined,
+                scheduleAsOf: calculation.breakdown.ratesAsOf,
+              }}
+            />
           </>
         ) : null}
       </div>

@@ -22,9 +22,24 @@ built from. Deployed — `vercel link` connected the GitHub repo
 (`krishkshir/msk_ppal_calc`) to a new Vercel project
 (`shri-kant/msk-ppal-calc`), live at `msk-ppal-calc.vercel.app`.
 
-v0.3 (the shareable, URL-encoded client-facing breakdown) and v0.4 (broader
-currency/buyer-market coverage) are not built yet, per the roadmap in
-`docs/CONSTITUTION.md`.
+v0.3 is implemented: the shareable, URL-encoded client-facing breakdown at
+`src/app/breakdown/page.tsx` (a Server Component reading `searchParams`),
+plus `src/lib/share/breakdown-link.ts` (pure encode/decode of the query
+params, including the project's first runtime validators for `Currency`/
+`BuyerMarket`) and `src/components/share-link.tsx` (the copy-link
+affordance on the calculator). The share URL freezes the gross amount, pay
+currency, buyer market, and — for non-USD payments — the FX rate and its
+date at link-creation time, plus the fee-schedule date, so a shared link
+never silently re-fetches a different FX rate later; a schedule-date
+mismatch on open renders a visible drift warning instead of silently
+showing different numbers. `src/components/fee-breakdown.tsx` gained an
+optional `receivedLabel` prop (default unchanged) so the shared page can
+relabel the final row "AMOUNT RECEIVED" for a client audience; the fee
+engine itself is untouched. See `docs/plan-v0.3.html` for the
+implementation plan this was built from.
+
+v0.4 (broader currency/buyer-market coverage, resolving the two remaining
+open questions) is not built yet, per the roadmap in `docs/CONSTITUTION.md`.
 
 Commands (via `pnpm`):
 
@@ -109,9 +124,10 @@ doc-only and fee-model-correction changes, not just code.
 ## Stack
 
 Per `docs/CONSTITUTION.md`, now installed: Next.js (App Router) + TypeScript,
-deployed to Vercel; Tailwind v4 + shadcn/ui; Vitest for the fee engine and
-the FX fetch; FX base rates from the Frankfurter API (no key required). No
-database yet — the shareable-breakdown URL encoding is v0.3. No PayPal API
+deployed to Vercel; Tailwind v4 + shadcn/ui; Vitest for the fee engine, the
+FX fetch, and the share-link encode/decode. FX base rates from the
+Frankfurter API (no key required). No database — the shareable breakdown
+(v0.3) encodes its inputs entirely in the URL, per plan. No PayPal API
 integration in v1 (PayPal exposes actual fees per completed transaction but
 no endpoint for the fee *schedule* itself, so a hand-curated, dated table is
 required regardless).

@@ -7,6 +7,8 @@ interface FeeBreakdownProps {
   topLabel: string;
   /** Shown under the final row in quote mode, to confirm the rounded-up invoice meets the target. */
   footnote?: string;
+  /** Label for the final row. Defaults to "YOU RECEIVE"; the shared client-facing page uses "AMOUNT RECEIVED". */
+  receivedLabel?: string;
 }
 
 const CONFIDENCE_LABEL: Record<Confidence, string> = {
@@ -48,7 +50,7 @@ function safeDivide(numerator: number, denominator: number): number {
   return denominator === 0 ? 0 : numerator / denominator;
 }
 
-function buildRows(breakdown: Breakdown, topLabel: string): Row[] {
+function buildRows(breakdown: Breakdown, topLabel: string, receivedLabel: string): Row[] {
   const { grossPaid, commercialFee, fxConversion, received } = breakdown;
   const netInPayCurrency = grossPaid.cents - commercialFee.cents;
 
@@ -73,7 +75,7 @@ function buildRows(breakdown: Breakdown, topLabel: string): Row[] {
   if (!fxConversion) {
     rows.push({
       key: "result",
-      label: "YOU RECEIVE",
+      label: receivedLabel,
       amount: formatMoney(received.cents, received.currency),
       fraction: safeDivide(received.cents, grossPaid.cents),
       tone: "result",
@@ -102,7 +104,7 @@ function buildRows(breakdown: Breakdown, topLabel: string): Row[] {
     },
     {
       key: "result",
-      label: "YOU RECEIVE",
+      label: receivedLabel,
       amount: formatMoney(received.cents, received.currency),
       fraction: safeDivide(received.cents, atBaseRateCents),
       tone: "result",
@@ -157,8 +159,13 @@ function LedgerRow({ row }: { row: Row }) {
   );
 }
 
-export function FeeBreakdown({ breakdown, topLabel, footnote }: FeeBreakdownProps) {
-  const rows = buildRows(breakdown, topLabel);
+export function FeeBreakdown({
+  breakdown,
+  topLabel,
+  footnote,
+  receivedLabel = "YOU RECEIVE",
+}: FeeBreakdownProps) {
+  const rows = buildRows(breakdown, topLabel, receivedLabel);
 
   return (
     <div>
