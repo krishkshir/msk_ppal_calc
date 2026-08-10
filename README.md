@@ -21,8 +21,17 @@ pnpm install
 pnpm dev
 ```
 
-The app runs at <http://localhost:3000>. No environment variables are
-required — the FX rate lookup (Frankfurter) needs no API key.
+The app runs at <http://localhost:3000>. The FX rate lookup (Frankfurter)
+needs no API key.
+
+The public calculator (`/`) and the shareable breakdown (`/breakdown`)
+need no environment variables. The gated transaction ledger (`/ledger`,
+v0.5+) needs a Supabase project — `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` at minimum; run `vercel env pull` if this
+repo is already linked to the Vercel project, or see `CLAUDE.md` §
+"Supabase" for how it's provisioned. Without them, `/ledger` won't load,
+but `/` and `/breakdown` fall back to the same static fee schedule the
+app always shipped with and work exactly as before.
 
 Other commands:
 

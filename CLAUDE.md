@@ -77,6 +77,43 @@ this fix carry no frozen figures and keep falling back to the old
 `docs/plan-share-link-drift.html` for the design this was built from,
 including the "Trust boundary" section documenting this revision.
 
+v0.5 is implemented: a gated `/ledger` (Supabase-backed — Postgres +
+magic-link Auth, provisioned via the Vercel Marketplace) where Ms. K
+records real PayPal transactions herself, and the app re-derives the
+commercial rate, per-currency fixed fees, and the FX spread from them.
+`src/lib/fees/solve.ts` (new, pure) does exact interval-arithmetic
+feasibility solving — before writing it, checking T1–T3 alone found they
+do **not** uniquely determine the model: six different integer fixed fees
+($0.29–$0.34) each admit a rate band that reproduces all three
+transactions exactly, diverging by up to 45¢ at $1,000. This reshaped the
+whole design: `src/lib/fees/propose.ts` (new) judges whether to propose a
+replacement by whether every *feasible* model predicts the same fee (to a
+one-minor-unit tolerance) across representative amounts, not by whether
+the parameters are unique — which they never are, on any realistic amount
+of data. Seeded with only T1–T3, the ledger correctly reports "confirmed,
+not yet uniquely determined" and proposes nothing; that's the anchor
+regression test (`src/lib/fees/propose.test.ts`). `src/lib/fees/engine.ts`
+gained one optional field, `model?: FeeModel` (`src/lib/fees/model.ts`,
+new) — absent, `settle`/`quote` build the same values from
+`schedule.ts`/`currencies.ts` exactly as before v0.5, so all pre-v0.5
+tests and call sites are unmodified and a Supabase outage degrades `/`
+and `/breakdown` to their pre-v0.5 behavior rather than breaking.
+`src/lib/fx/frankfurter.ts`'s `getFxRateToUSD` gained an optional `date`
+argument (verified against Frankfurter's real `/v2/rates?date=...`
+endpoint) since a recorded transaction's FX rate must be the rate on its
+payment date, not today's — cross-currency inference is against the ECB
+reference rate, not literally PayPal's own base rate, and is labeled as
+such. Two Supabase accounts: Ms. K can record transactions and accept a
+proposed model herself (self-service, no maintainer bottleneck); an admin
+account can additionally exclude/correct a transaction, edit the seeded
+T1–T3 rows, and revert to a prior accepted model (`fee_models` is
+append-only — revert re-inserts a prior model's figures as a fresh row
+rather than mutating history). `src/proxy.ts` (this Next.js version
+renamed `middleware.ts` to `proxy.ts`) gates `/ledger*` only — `/` and
+`/breakdown` stay public, since clients open `/breakdown` links with no
+login. See `docs/plan-v0.5.html` for the implementation plan this was
+built from, including the full feasible-fixed-fee table.
+
 Commands (via `pnpm`):
 
 - `pnpm install` — install dependencies
@@ -172,23 +209,44 @@ doc-only and fee-model-correction changes, not just code.
   operates entirely in *minor* units. Multiplying a minor-unit amount
   directly by that rate is only correct when the pay currency's
   minor-unit exponent matches USD's (2) — true for every currency here
-  except JPY (exponent 0). `src/lib/fees/engine.ts`'s
+  except JPY (exponent 0). `src/lib/fees/currencies.ts`'s
   `fxRateInMinorUnits` scales the rate by `10 ** (usdExponent -
   payCurrencyExponent)` before applying it; skipping that scaling
   silently produces amounts off by a power of ten. This was invisible
   through v0.1–v0.3 because CAD (exponent 2, same as USD) was the only
-  non-USD currency in scope.
+  non-USD currency in scope. (Moved here from `engine.ts` in v0.5 so
+  `src/lib/fees/solve.ts`'s FX-spread solver can share the same
+  implementation rather than duplicating it.)
+- **T1–T3 do not uniquely determine the commercial rate — a v0.5 finding
+  worth knowing before touching the ledger.** Six different integer fixed
+  fees, $0.29 through $0.34, each admit a rate band that reproduces all
+  three transactions exactly to the cent; `4.625% + $0.31` is the
+  roundest of the six, not the unique solution. `src/lib/fees/solve.ts`'s
+  `solveCommercial`/`predictionSpread` and `src/lib/fees/propose.ts`'s
+  decision rules are built around this: they judge whether to propose a
+  new model by whether every *feasible* model predicts the same fee
+  closely enough, not by whether the parameters converge to one point —
+  which they never do, on any realistic amount of data. Don't "fix" the
+  seeded-ledger test to expect a unique model; "confirmed, not yet
+  uniquely determined, no proposal" is the correct behavior with only
+  T1–T3 loaded. See `docs/plan-v0.5.html` "The finding that shapes the
+  whole design" for the full table.
 
 ## Stack
 
 Per `docs/CONSTITUTION.md`, now installed: Next.js (App Router) + TypeScript,
 deployed to Vercel; Tailwind v4 + shadcn/ui; Vitest for the fee engine, the
 FX fetch, and the share-link encode/decode. FX base rates from the
-Frankfurter API (no key required). No database — the shareable breakdown
-(v0.3) encodes its inputs entirely in the URL, per plan. No PayPal API
-integration in v1 (PayPal exposes actual fees per completed transaction but
-no endpoint for the fee *schedule* itself, so a hand-curated, dated table is
-required regardless).
+Frankfurter API (no key required). The public calculator and `/breakdown`
+remain database-free — the shareable breakdown (v0.3) encodes its inputs
+entirely in the URL, per plan. As of v0.5, Supabase (Postgres + Auth,
+provisioned via the Vercel Marketplace under the `shri-kant` team) backs
+the gated `/ledger` only: `@supabase/ssr` + `@supabase/supabase-js`,
+`src/lib/db/` for the query layer, `src/proxy.ts` for session refresh and
+route gating, `supabase/migrations/` for schema + RLS policies. No PayPal
+API integration in v1 (PayPal exposes actual fees per completed
+transaction but no endpoint for the fee *schedule* itself, so a
+hand-curated, dated table is required regardless).
 
 ## Visual verification and debugging
 
@@ -260,6 +318,23 @@ but it means the usual "confirm before deploying to production" caution
 doesn't get a chance to trigger on a project's very first deploy — flag it
 to the user after the fact if it happens, same as any other production
 deploy would require confirmation for.
+
+## Supabase (the ledger's database)
+
+Provisioned via `vercel integration add supabase` under `shri-kant` —
+project `supabase-beige-harbor`, connected to `msk-ppal-calc` and its env
+vars pulled into the gitignored `.env.local` (`vercel env pull --yes` if
+they ever go stale). This is the only external account this project's
+data touches; treat schema changes and RLS policy edits with the same
+care as a production deploy. Apply new migrations with `psql
+"$POSTGRES_URL_NON_POOLING" -f supabase/migrations/<file>.sql` (source
+`.env.local` first) — the Supabase CLI itself isn't linked to this
+project (`supabase link` needs an interactive `supabase login`), so
+`psql` against the pooled-off connection string is the working path.
+Promoting an account to `role='admin'` in `public.profiles` is a
+one-time manual SQL step by the maintainer, deliberately not a UI
+feature — see `supabase/migrations/20260810160000_v0_5_ledger.sql`'s
+comment on `handle_new_user()`.
 
 ## Non-goals
 

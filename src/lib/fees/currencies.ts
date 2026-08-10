@@ -292,3 +292,19 @@ export function currencySpec(code: Currency): CurrencySpec {
 export function isCurrency(value: string): value is Currency {
   return CURRENCIES.some((c) => c.code === value);
 }
+
+/**
+ * fxBaseRateToUSD is always USD per 1 MAJOR unit of payCurrency, but
+ * settle()/quote() (and, since v0.5, solve.ts's spread solver) operate
+ * entirely in minor units. Converting a minor-unit amount directly by
+ * that rate is only correct when payCurrency's minor-unit exponent
+ * matches USD's (2) — true for every currency here except JPY (0). This
+ * scales the rate so it can be applied directly to minor-unit amounts
+ * regardless of exponent. Lives here, not in engine.ts, so engine.ts and
+ * solve.ts share one implementation instead of each defining their own.
+ */
+export function fxRateInMinorUnits(fxBaseRateToUSD: number, payCurrency: Currency): number {
+  const payCurrencyExponent = currencySpec(payCurrency).minorUnitExponent;
+  const usdExponent = currencySpec("USD").minorUnitExponent;
+  return fxBaseRateToUSD * 10 ** (usdExponent - payCurrencyExponent);
+}

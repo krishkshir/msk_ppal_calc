@@ -338,6 +338,63 @@ describe("settle — JPY minor-unit scaling (self-generated regression, NOT grou
   });
 });
 
+describe("settle — optional model override (v0.5 ledger)", () => {
+  // The model field lets a ledger-accepted rate/fixed-fee/spread replace
+  // the static schedule.ts/currencies.ts constants without changing
+  // settle()'s logic — see src/lib/fees/model.ts.
+  it("uses the model's rate and fixed fee in place of the static schedule", () => {
+    const result = settle({
+      grossPaidMinorUnits: 8300,
+      payCurrency: "USD",
+      buyerMarket: "OTHER",
+      monthlyVolumeUSDCents: 0,
+      model: { rate: 0.05, fixedFeeMinorUnits: 100, confidence: "observed", asOf: "2026-09-01" },
+    });
+    // 8300 * 0.05 + 100 = 515, rounded — not T1's static 415.
+    expect(result.commercialFee.minorUnits).toBe(515);
+    expect(result.commercialFee.confidence).toBe("observed");
+    expect(result.ratesAsOf).toBe("2026-09-01");
+  });
+
+  it("falls back to the static schedule for any field the model leaves unset", () => {
+    // A model that only pins the rate (e.g. solved from USD observations
+    // alone) must not silently invent a fixed fee or spread.
+    const withModel = settle({
+      grossPaidMinorUnits: 100_000,
+      payCurrency: "CAD",
+      buyerMarket: "OTHER",
+      monthlyVolumeUSDCents: 0,
+      fxBaseRateToUSD: 0.73,
+      model: { rate: 0.04625 },
+    });
+    const withoutModel = settle({
+      grossPaidMinorUnits: 100_000,
+      payCurrency: "CAD",
+      buyerMarket: "OTHER",
+      monthlyVolumeUSDCents: 0,
+      fxBaseRateToUSD: 0.73,
+    });
+    expect(withModel.commercialFee.minorUnits).toBe(withoutModel.commercialFee.minorUnits);
+    expect(withModel.fxConversion?.minorUnits).toBe(withoutModel.fxConversion?.minorUnits);
+  });
+
+  it("keeps the commercial-fee and FX-spread confidence independent", () => {
+    // A model can pin this currency's fixed fee (observed) while the FX
+    // spread for it remains unvalidated — the two must not bleed into
+    // each other's displayed confidence.
+    const result = settle({
+      grossPaidMinorUnits: 100_000,
+      payCurrency: "CAD",
+      buyerMarket: "OTHER",
+      monthlyVolumeUSDCents: 0,
+      fxBaseRateToUSD: 0.73,
+      model: { fixedFeeMinorUnits: 30, confidence: "observed" },
+    });
+    expect(result.commercialFee.confidence).toBe("observed");
+    expect(result.fxConversion?.confidence).toBe("estimated");
+  });
+});
+
 describe("schedule metadata", () => {
   it("every schedule entry carries effectiveFrom, sourceUrl, and confidence", async () => {
     const { SCHEDULE } = await import("./schedule");

@@ -7,6 +7,105 @@ the substantive changes.
 
 ## Unreleased
 
+- Implemented v0.5: a gated `/ledger` where Ms. K records real PayPal
+  transactions herself, and the app re-derives the commercial rate,
+  per-currency fixed fees, and the FX spread from them — proposing a
+  change only when the data determines one closely enough, otherwise
+  reporting what's missing and keeping the current model. See
+  `docs/plan-v0.5.html` for the full design.
+  - **Finding that shaped the design:** checked before writing the
+    solver whether T1–T3 alone uniquely determine the model, and they
+    don't — six different integer fixed fees ($0.29–$0.34) each admit a
+    rate band reproducing all three transactions exactly, diverging by
+    up to 45¢ at $1,000. `4.625% + $0.31` is the roundest of the six, not
+    the unique solution. This reshaped the acceptance rule: propose a
+    replacement only when every *feasible* model predicts the same fee
+    (within one minor unit) across representative amounts — not when the
+    parameters converge, which they never do on this little data.
+  - `src/lib/fees/solve.ts` (new, pure) — exact interval-arithmetic
+    feasibility solver: `solveCommercial` (rate + USD fixed fee),
+    `solveCurrencyFixedFee` (per non-USD currency, given a known rate and
+    a directly-observed fee — e.g. from PayPal's own displayed fee
+    line), `solveConversionSpread` (the FX spread, global across
+    currencies), `predictionSpread` (the actual uniqueness signal).
+    `fxRateInMinorUnits` moved here from `engine.ts` into
+    `currencies.ts` so both modules share one implementation.
+  - `src/lib/fees/propose.ts` (new, pure) — the confirmed / propose /
+    contradiction / unresolved decision table. Seeded with only T1–T3,
+    correctly reports "confirmed, not yet uniquely determined" and
+    proposes nothing; this is the anchor regression test.
+  - `src/lib/fees/model.ts` (new) — `FeeModel`, every field independently
+    optional; `resolveFeeModel()` maps a DB row to it for one specific
+    `payCurrency`/`buyerMarket` call.
+  - `src/lib/fees/engine.ts` — gained one optional field on
+    `CommonInput`, `model?: FeeModel`. Absent, `settle`/`quote` build the
+    same values from `schedule.ts`/`currencies.ts` exactly as before —
+    every pre-v0.5 test and call site is unmodified, and this is also
+    the fallback path when Supabase is unreachable. Fixed a real bug
+    caught by a new test while wiring this in: `confidenceFor`'s
+    "non-USD fixed fee can't be observed" downgrade was written for the
+    static schedule, where that's true by construction — but the ledger
+    *can* observe a non-USD fixed fee directly, and the downgrade was
+    silently overriding a model-supplied `"observed"` confidence for
+    exactly that case. Now only applies when falling back to the static
+    schedule. Commercial-fee and FX-spread confidence are also now
+    tracked independently (`fee_models.fx_spread_confidence`, a new
+    column) — they previously shared one field, which meant a model that
+    validated a currency's fixed fee would incorrectly show its
+    unrelated, still-unvalidated FX spread as "observed" too.
+  - `src/lib/fx/frankfurter.ts` — `getFxRateToUSD` gained an optional
+    `date` argument, verified against Frankfurter's real
+    `/v2/rates?date=YYYY-MM-DD&base=...&quotes=USD` endpoint (ECB data
+    back to 1948, no quota). A recorded transaction's FX rate must be the
+    rate on its payment date, not today's. The existing no-argument call
+    site and test are unaffected.
+  - **Database:** Supabase (Postgres + Auth) provisioned via
+    `vercel integration add supabase` under the `shri-kant` Vercel team —
+    the only external account this project's data touches, and the only
+    part of the app that isn't stateless. `supabase/migrations/` —
+    `profiles` (role `admin`/`user`, auto-created via an `auth.users`
+    trigger), `transactions` (append-only, `excluded_reason` instead of
+    delete), `fee_models` (append-only, anon-readable so the public
+    calculator and `/breakdown` can read the active model with no
+    session; writes are authenticated-only). Seeded with T1–T3 and the
+    committed v0.4 model — reproducing today's calculator output exactly
+    was the first thing verified.
+  - **Auth:** magic-link sign-in (`@supabase/ssr`, `@supabase/supabase-js`).
+    `src/proxy.ts` — this Next.js version renamed `middleware.ts` to
+    `proxy.ts`; refreshes the session on every request and gates
+    `/ledger*` only, never the whole site, since `/breakdown` links must
+    stay openable with no login. `src/app/auth/confirm/route.ts` handles
+    the magic-link callback via `verifyOtp({type, token_hash})` — checked
+    empirically against the real provisioned project (via the Supabase
+    admin API's `generateLink`, not assumed from docs alone) rather than
+    two contradicting patterns surfaced by research (a `token_hash`-based
+    doc and a PKCE-`code`-based one).
+  - **Accounts:** self-service by design — either account can record a
+    transaction and accept a proposed model, so accepting a fix never
+    waits on the maintainer. Admin-only: excluding/correcting a
+    transaction, editing the seeded T1–T3 rows, reverting to a prior
+    accepted model (re-inserts its figures as a fresh row — `fee_models`
+    stays append-only, history is never mutated).
+  - `src/app/page.tsx` split into a thin Server Component (fetches the
+    active model once) and `src/components/calculator.tsx` (the existing
+    client-side interactive calculator, now taking `activeModel` as a
+    prop) — the fetch happens server-side rather than adding a second
+    client-side round trip alongside the existing FX fetch. `/` is now
+    server-rendered per request instead of static, since it reads the
+    live model.
+  - `src/app/breakdown/page.tsx` — reads the active model the same way.
+    This gives `hasFrozenDrift()` (from the share-link drift fix below) a
+    real case it was only built in anticipation of: a link created
+    before an accepted model change now genuinely goes stale, and the
+    existing machinery already catches it correctly.
+  - End-to-end verified against the real provisioned database and a
+    throwaway test account (created and fully deleted via the Supabase
+    admin API afterward — 0 users, 0 profiles, exactly T1–T3 and the one
+    seed model remain): sign-in redirect gate, recording a transaction,
+    the contradiction verdict on an inconsistent one, excluding it and
+    watching the model reconfirm, a genuine resolution triggering a
+    propose verdict, accepting it, and an admin reverting to the prior
+    model — all through the real UI, not mocked.
 - Fixed a security regression in the share-link staleness fix below, found
   by a follow-up code review run against it before it was pushed further.
   The staleness fix's first version rendered the frozen `fee`/`net`/`spread`

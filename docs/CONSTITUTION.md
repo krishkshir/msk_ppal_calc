@@ -187,6 +187,23 @@ so they isolate the commercial transaction fee from the 4% FX spread
 completely. This table is the validation set; append future observations
 here rather than starting a new one.
 
+**As of v0.5, this table is no longer the live validation set — the gated
+`/ledger` route is.** T1–T3 below are seeded into the `transactions` table
+verbatim (`supabase/migrations/20260810160000_v0_5_ledger.sql`) and this
+document is kept as the historical record and the account of how the model
+was originally derived, not as a place new observations get appended by
+hand. New transactions are recorded through the app now; `docs/plan-v0.5.html`
+is the design record for how the ledger re-derives the model from them.
+
+One finding from that work belongs here too: propagating the same
+±half-cent rounding logic below across *all six* integer fixed fees in the
+$0.29–$0.34 band (not just $0.30 and 4.625% individually) shows T1–T3 alone
+do not uniquely determine the model — six different (rate, fixed fee) pairs
+each reproduce all three transactions exactly. `4.625% + $0.31` is the
+roundest of the six, not the only one consistent with the data; see
+`docs/plan-v0.5.html` "The finding that shapes the whole design" for the full
+table and what it changed about the ledger's design.
+
 | # | Client paid | Ms. K received | Implied fee | Effective rate |
 |---|---|---|---|---|
 | T1 | 83.00 USD | 78.85 USD | 4.15 USD | 5.000% |
@@ -324,7 +341,7 @@ removed at the user's direction — out of scope for this project.)
 | FX rates | [Frankfurter](https://frankfurter.dev/) (`/v2/rates`) | Free, no API key, ECB reference rates. Supplies the **base** market rate only — PayPal's conversion spread is applied on top by our own engine, since Frankfurter doesn't know about PayPal's markup |
 | Fee math | Hand-maintained, versioned table (`src/lib/fees/schedule.ts`) | PayPal publishes its fee *schedule* as a webpage, not an API — there is no endpoint to query it programmatically, so it must be curated and dated by hand. The schedule keys on `monthlyVolumeUSD` (trailing volume), `buyerMarket`, and `payCurrency` — deliberately *not* on single-transaction size, correcting the tiering bug found in the calculator Ms. K uses today (see above) |
 | Testing | Vitest | Fast, TS-native; the fee engine is the credibility of the whole product and needs exhaustive unit coverage |
-| Data storage | None | Shareable breakdowns encode their inputs into the URL itself. No database, no stored client data, no accounts, no auth |
+| Data storage | Supabase (Postgres + Auth), v0.5+ | The public calculator and `/breakdown` remain stateless — shareable breakdowns still encode their inputs into the URL. Supabase exists solely for the gated `/ledger`: an append-only table of Ms. K's real transactions and the fee models re-derived from them, with row-level security and magic-link auth. See `docs/plan-v0.5.html` |
 
 ### Why not integrate the PayPal API?
 
@@ -385,6 +402,13 @@ credentials and a backend that a pure calculator doesn't need.
   JPY (the first zero-decimal currency this project handles); a country
   picker replacing direct buyer-market selection; open question 1 above
   resolved.
+- **v0.5** — A gated `/ledger` where Ms. K records real PayPal transactions
+  herself; the app re-derives the commercial rate, per-currency fixed
+  fees, and the FX spread from them, proposing a change only when the
+  data determines one closely enough and otherwise reporting what's
+  still missing while keeping the current model. The manual-entry
+  version of the v1.0+ idea below, not a step toward it — see
+  `docs/plan-v0.5.html`.
 - **v1.0+** — Optional PayPal API reconciliation: compare predicted fees
   against actual `seller_receivable_breakdown` data from completed
   transactions.

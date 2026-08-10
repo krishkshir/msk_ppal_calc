@@ -434,6 +434,23 @@ function setPapPalCommissionToolsPg(){
       Effective rate falls as the amount rises — the signature of a genuine fixed fee, confirming
       <code>rate + fixed</code> is the right model shape.
     </p>
+    <div class="callout">
+      <p class="label">Finding — as of v0.5, this table is no longer the live validation set</p>
+      <p>
+        The gated <code>/ledger</code> route is. T1–T3 above are seeded into the
+        <code>transactions</code> table verbatim
+        (<code>supabase/migrations/20260810160000_v0_5_ledger.sql</code>) and this document is kept
+        as the historical record of how the model was originally derived, not as a place new
+        observations get appended by hand — new transactions are recorded through the app now. One
+        finding from that work belongs here too: propagating the same ±half-cent rounding logic below
+        across <em>all six</em> integer fixed fees in the $0.29–$0.34 band (not just $0.30 and 4.625%
+        individually) shows T1–T3 alone do not uniquely determine the model — six different (rate,
+        fixed fee) pairs each reproduce all three transactions exactly. <code>4.625% + $0.31</code> is
+        the roundest of the six, not the only one consistent with the data; see
+        <a href="plan-v0.5.html">docs/plan-v0.5.html</a> "The finding that shapes the whole design" for
+        the full table.
+      </p>
+    </div>
     <p>
       <strong>Out-of-sample validation:</strong> T1 and T2 alone solve to <code>r = 4.615%,
       f = $0.319</code>. That model, fitted without ever seeing T3, predicts T3's fee as 5.858 →
@@ -583,8 +600,11 @@ function setPapPalCommissionToolsPg(){
     <ul>
       <li><strong>Next.js (App Router) + TypeScript</strong> on Vercel</li>
       <li><strong>Tailwind + shadcn/ui</strong></li>
-      <li><strong>No database.</strong> Shareable breakdowns encode their inputs in a compressed URL
-      param. No stored client data, no PII, no auth to build.</li>
+      <li><strong>No database for the public calculator or <code>/breakdown</code>.</strong>
+      Shareable breakdowns still encode their inputs in a URL param. As of v0.5, Supabase (Postgres +
+      Auth) backs the gated <code>/ledger</code> only — Ms. K's transaction record and the fee models
+      re-derived from it, with row-level security and magic-link sign-in. See
+      <a href="plan-v0.5.html">docs/plan-v0.5.html</a>.</li>
       <li><strong>FX base rates: Frankfurter</strong>
       (<code>https://api.frankfurter.dev/v2/rates?base=USD&amp;quotes=CAD</code>) — ECB reference
       rates, free, no API key, no account. Supplies the <em>base</em> rate only; PayPal's 4.0% spread
@@ -642,6 +662,7 @@ USD    662.14                   ████████████</pre>
       <li><span class="ver">v0.2</span> calculator UI, both directions</li>
       <li><span class="ver">v0.3</span> shareable client breakdown</li>
       <li><span class="ver">v0.4</span> fee-table refresh workflow; currency coverage widened from 2 to 22 (incl. JPY); country picker for buyer market; open question 1 resolved</li>
+      <li><span class="ver">v0.5</span> gated ledger where Ms. K records real transactions; the app re-derives the rate, per-currency fixed fees, and FX spread, proposing a change only when the data determines one closely enough</li>
       <li><span class="ver">v1.0+</span> optional PayPal API reconciliation</li>
     </ul>
 

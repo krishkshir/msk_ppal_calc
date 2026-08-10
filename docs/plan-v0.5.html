@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan v0.5 — msk_ppal_calc</title>
+<style>
+  :root {
+    --ink: #12203A;
+    --paper: #FBFAF7;
+    --paper-dim: #F3F1EA;
+    --rule: #DAD5C7;
+    --red: #A6432B;
+    --teal: #1F6F5C;
+    --brass: #C9A227;
+    --muted: #5B6472;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 840px; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
+  header.page-head {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 2rem;
+    margin-bottom: 3rem;
+  }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 0.75rem;
+  }
+  h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 600;
+    font-size: clamp(2rem, 5vw, 2.75rem);
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.01em;
+  }
+  .subtitle { color: var(--muted); font-size: 1.05rem; margin: 0; }
+  h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.5rem;
+    margin: 3rem 0 1rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+  }
+  h2:first-of-type { border-top: none; padding-top: 0; }
+  h3 {
+    font-size: 1.05rem;
+    margin: 2rem 0 0.75rem;
+    color: var(--ink);
+  }
+  p { margin: 0 0 1rem; }
+  blockquote {
+    margin: 1.5rem 0;
+    padding: 1rem 1.25rem;
+    background: var(--paper-dim);
+    border-left: 3px solid var(--brass);
+    font-style: italic;
+    color: var(--ink);
+  }
+  blockquote p:last-child { margin-bottom: 0; }
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    background: var(--paper-dim);
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+  pre {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 1.25rem 1.5rem;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.7;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.25rem 0;
+    font-size: 0.95rem;
+  }
+  caption { caption-side: bottom; }
+  th, td {
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  td:nth-child(2), td.num {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    white-space: nowrap;
+  }
+  .callout {
+    margin: 1.5rem 0;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--red);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--red) 6%, var(--paper));
+  }
+  .callout .label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--red);
+    margin: 0 0 0.5rem;
+    font-weight: 600;
+  }
+  .callout.ok {
+    border-color: var(--teal);
+    background: color-mix(in srgb, var(--teal) 6%, var(--paper));
+  }
+  .callout.ok .label { color: var(--teal); }
+  .open-questions {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .open-questions li {
+    padding: 0.9rem 0 0.9rem 2.25rem;
+    position: relative;
+    border-bottom: 1px solid var(--rule);
+  }
+  .open-questions li:last-child { border-bottom: none; }
+  .open-questions li::before {
+    content: "?";
+    position: absolute;
+    left: 0;
+    top: 0.85rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    border: 1.5px solid var(--brass);
+    color: var(--brass);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .open-questions strong { color: var(--ink); }
+  .files-table td:first-child, .files-table th:first-child {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.85rem;
+    color: var(--teal);
+  }
+  ul.roadmap { list-style: none; margin: 0; padding: 0; }
+  ul.roadmap li {
+    display: flex;
+    gap: 1rem;
+    padding: 0.6rem 0;
+    align-items: baseline;
+  }
+  ul.roadmap .ver {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-weight: 600;
+    color: var(--teal);
+    min-width: 4.5rem;
+  }
+  ol.exec { padding-left: 1.25rem; }
+  ol.exec li { margin-bottom: 0.6rem; }
+  ul.steps { padding-left: 1.25rem; }
+  ul.steps li { margin-bottom: 0.5rem; }
+  a { color: var(--teal); }
+  footer.sources {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  footer.sources ul { padding-left: 1.25rem; }
+  .status-pill {
+    display: inline-block;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--teal);
+    border: 1px solid var(--teal);
+    border-radius: 999px;
+    padding: 0.2rem 0.7rem;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page-head">
+    <p class="eyebrow">Plan · msk_ppal_calc · v0.5</p>
+    <h1>Implementing v0.5: a transaction ledger that re-derives the fee model itself</h1>
+    <p class="subtitle">Proposal to let Ms. K record real PayPal transactions herself, and have the
+    app re-derive the commercial rate, fixed fees, and FX spread from them — proposing a change only
+    when the data genuinely determines one, and otherwise saying so and keeping today's figures.</p>
+    <p style="margin-top:1rem"><span class="status-pill">Proposed</span></p>
+  </header>
+
+  <section>
+    <h2>Scope</h2>
+    <p>
+      Every figure the engine trusts today — <code>4.625% + $0.31</code> — was derived by hand from
+      three transactions recorded in <code>docs/CONSTITUTION.md</code>. Adding a fourth observation
+      today means editing a markdown table, redoing a regression by hand, and editing
+      <code>src/lib/fees/schedule.ts</code> in a pull request. Ms. K is not technical, so in practice
+      this never happens once the app ships, and the model silently ages exactly the way
+      <code>docs/plan.html</code>'s "Maintenance contract" warns against.
+    </p>
+    <p>
+      The roadmap already anticipates a version of this — v1.0+, "compare predicted fees against
+      actual <code>seller_receivable_breakdown</code> data from completed transactions" — but that
+      depends on a PayPal API endpoint that doesn't expose the fee <em>schedule</em>, only per-transaction
+      results. v0.5 gets the same benefit by hand-entry: Ms. K records what a transaction actually
+      paid and settled, and the app treats that the way <code>CONSTITUTION.md</code>'s own
+      "observed transactions" table already works — as a growing validation set the model must be
+      reconciled against.
+    </p>
+    <blockquote>
+      <p>v0.5 — A gated ledger where Ms. K records real transactions; the app re-derives rate, fixed
+      fees, and FX spread when the data uniquely determines them, and otherwise reports what's missing
+      and leaves the current model in place.</p>
+    </blockquote>
+    <p>Decisions confirmed with the user before drafting this plan:</p>
+    <ul>
+      <li><strong>Storage.</strong> A real, provisioned database — not <code>localStorage</code> (it
+      would let the calculator and a shared <code>/breakdown</code> link disagree) and not an in-repo
+      file (it would put a git commit on the critical path of Ms. K doing her job). Supabase, via the
+      Vercel Marketplace, providing both the Postgres database and the login in one integration.</li>
+      <li><strong>Two accounts.</strong> An admin account (the maintainer) and a user account for
+      Ms. K, with different capabilities — see "Accounts and access" below.</li>
+      <li><strong>Adoption is propose-and-confirm, never automatic.</strong> A re-derived model change
+      only takes effect once explicitly accepted. Nothing displaces
+      <code>4.625% + $0.31</code> silently.</li>
+      <li><strong>Inference scope.</strong> The commercial rate and USD fixed fee (extending T1–T3's
+      existing method), plus — new — each currency's fixed fee and the FX spread, both currently
+      <code>unvalidated</code>/<code>estimated</code> with zero ground truth behind them.</li>
+      <li><strong>Received currency stays USD.</strong> Ms. K holds a single USD PayPal balance;
+      <code>ACCOUNT_CURRENCY</code> in <code>schedule.ts</code> remains a constant, not an input.</li>
+      <li><strong>Ledger scope is a validation set, not bookkeeping.</strong> Append-only transaction
+      records with the fields the solver needs, per the non-goal already stated in
+      <code>docs/CONSTITUTION.md</code>. No invoicing, no totals, no client management.</li>
+    </ul>
+    <p>Explicitly out of scope:</p>
+    <ul>
+      <li>Re-deriving the UAE (3.4%) or EEA/UK (4.69%) rates — each needs its own transactions with a
+      buyer in that market, and none exist yet. The schema records buyer country so this becomes
+      solvable later without a migration.</li>
+      <li>PayPal API integration. This plan is the manual alternative to that roadmap item, not a step
+      toward it.</li>
+      <li>Any bookkeeping, invoicing, or tax feature — the ledger's fields are the minimum the solver
+      needs, not a business record.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>The finding that shapes the whole design</h2>
+    <p>
+      Before designing the solver, the natural question is "does T1–T3 alone even determine a unique
+      model?" — because if the seeded ledger already re-derives a different figure than
+      <code>4.625% + $0.31</code>, something is wrong before a single new transaction is entered. I
+      ran the feasibility arithmetic directly: for every candidate integer fixed fee, each observation
+      constrains the rate to an exact interval, and intersecting the three gives the fixed fee's
+      feasible rate band.
+    </p>
+    <div class="callout">
+      <p class="label">Finding — T1–T3 do not uniquely determine the model</p>
+      <p>
+        Six different integer fixed fees each admit a rate band that reproduces all three transactions
+        exactly to the cent:
+      </p>
+    </div>
+    <table>
+      <thead><tr><th>Fixed fee</th><th>Feasible rate band</th><th></th></tr></thead>
+      <tbody>
+        <tr><td class="num">$0.29</td><td class="num">4.6446% – 4.6458%</td><td></td></tr>
+        <tr><td class="num">$0.30</td><td class="num">4.6325% – 4.6375%</td><td></td></tr>
+        <tr><td class="num">$0.31</td><td class="num">4.6208% – 4.6292%</td><td>← current model</td></tr>
+        <tr><td class="num">$0.32</td><td class="num">4.6125% – 4.6196%</td><td></td></tr>
+        <tr><td class="num">$0.33</td><td class="num">4.6042% – 4.6084%</td><td></td></tr>
+        <tr><td class="num">$0.34</td><td class="num">4.5958% – 4.5964%</td><td></td></tr>
+      </tbody>
+    </table>
+    <p>All six agree on T1–T3 by construction, and diverge outside that narrow range:</p>
+    <table>
+      <thead><tr><th>Gross</th><th>Predicted fee, across all six models</th><th>Spread</th></tr></thead>
+      <tbody>
+        <tr><td class="num">$83.00</td><td class="num">$4.15</td><td class="num">0¢</td></tr>
+        <tr><td class="num">$500.00</td><td class="num">$23.32 – $23.52</td><td class="num">20¢</td></tr>
+        <tr><td class="num">$1,000.00</td><td class="num">$46.30 – $46.75</td><td class="num">45¢</td></tr>
+        <tr><td class="num">$5,000.00</td><td class="num">$230.13 – $232.58</td><td class="num">245¢</td></tr>
+      </tbody>
+    </table>
+    <p>
+      <code>4.625% + $0.31</code> is a defensible choice among the feasible models — the roundest rate
+      that fits — not the unique solution. This is consistent with, not a contradiction of,
+      <code>CONSTITUTION.md</code>'s own note that the three transactions span only $37 and that "one
+      $500+ transaction would tighten the rate band by roughly an order of magnitude."
+    </p>
+    <div class="callout ok">
+      <p class="label">Decision — judge uniqueness on predicted fees, not on the parameters</p>
+      <p>
+        Asking "is <code>(rate, fixed fee)</code> unique?" will answer <em>no</em> forever, on any
+        realistic amount of data — the feasible band only ever narrows, it doesn't collapse to a point.
+        The solver instead asks whether every feasible model predicts the <em>same fee, to the cent,
+        across the amounts Ms. K actually invoices</em>. That's answerable, and it's what she actually
+        needs: a model good enough that which one is "true" stops mattering.
+      </p>
+    </div>
+    <p>
+      Consequence for the seed data: with only T1–T3 loaded, the ledger's status must read
+      <strong>"confirmed, not yet uniquely determined"</strong> and propose nothing. That becomes the
+      first and most important test of this feature — it is the one case a naive version of this
+      feature gets wrong, by picking an arbitrary feasible model the moment two happen to differ.
+    </p>
+  </section>
+
+  <section>
+    <h2>The solver — <code>src/lib/fees/solve.ts</code> (new, pure, no I/O)</h2>
+    <p>
+      Exploits the same fact used above: fixed fees are integers in minor units, so
+      <code>roundHalfUp(gross · r + f) = fee</code> constrains <code>r</code> to an exact interval for
+      any candidate integer <code>f</code>. No curve-fitting library, no floating-point regression —
+      exact interval arithmetic over a small integer sweep.
+    </p>
+    <pre>fee = roundHalfUp(gross·r + f)
+    ⟺  fee − 0.5 ≤ gross·r + f &lt; fee + 0.5
+    ⟺  (fee − 0.5 − f)/gross ≤ r &lt; (fee + 0.5 − f)/gross
+
+solveCommercial(observations: Observation[]): FeasibleModel[]
+  // one entry per integer fixed fee whose rate-interval
+  // intersection (across all observations) is non-empty
+
+predictionSpread(feasible: FeasibleModel[], amounts: number[]): SpreadReport
+  // for each amount, min/max fee predicted across the feasible set —
+  // the uniqueness gate
+
+solveConversion(observations, rate): ConversionResult
+  // FX spread is global across currencies, so: sweep candidate
+  // spreads on a fine grid, keep those where every currency in the
+  // observations still admits ≥1 integer fixed fee</pre>
+    <p>
+      An empty feasible set means the observations <strong>contradict each other</strong> — most
+      likely a mistyped amount, or (much less likely) a genuine mid-set PayPal rate change. Roughly
+      120 lines total, no new dependency.
+    </p>
+  </section>
+
+  <section>
+    <h2>Decision rules — <code>src/lib/fees/propose.ts</code> (new, pure)</h2>
+    <table>
+      <thead><tr><th>Situation</th><th>Outcome</th></tr></thead>
+      <tbody>
+        <tr><td>Feasible set is empty</td><td><strong>Contradiction.</strong> Name the conflicting transactions. Keep the existing model.</td></tr>
+        <tr><td>Current model is still feasible</td><td><strong>Confirmed, no proposal.</strong> Show the tightened band and "confirmed by N transactions."</td></tr>
+        <tr><td>Current model infeasible; predictions agree within tolerance</td><td><strong>Propose</strong> the new model for confirmation.</td></tr>
+        <tr><td>Current model infeasible; predictions disagree</td><td><strong>Ruled out, unresolved.</strong> Keep the existing model, say so plainly, name the transaction size that would resolve it.</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Tolerance: predicted fees must agree to within one minor unit across a representative amount
+      range, both as named constants with the reasoning in a comment alongside them. The last row is
+      the case worth the most care — it's the one where adopting an arbitrary feasible model would be
+      an easy, wrong shortcut.
+    </p>
+  </section>
+
+  <section>
+    <h2>FX needs a transaction's own date, not today's</h2>
+    <p>
+      <code>src/lib/fx/frankfurter.ts</code> today has no <code>date</code> parameter at all — it
+      always hits the latest-rates endpoint. Verified against Frankfurter's own docs: the v2 API
+      supports <code>?date=YYYY-MM-DD&amp;base=…&amp;quotes=USD</code>, backed by ECB data to 1948,
+      with no quota. A transaction's rate must be the rate <em>on its payment date</em>; using today's
+      rate for a transaction from three months ago would poison the FX-spread solve with an unrelated
+      market move.
+    </p>
+    <div class="callout ok">
+      <p class="label">Decision — add an optional <code>date</code> argument, existing call site untouched</p>
+      <p>
+        <code>getFxRateToUSD(payCurrency, date?)</code>. The existing no-argument call from
+        <code>src/app/page.tsx</code> and its test in <code>frankfurter.test.ts</code> are unaffected.
+        ECB publishes business days only, so the response's own date may precede the one requested —
+        the ledger stores both and surfaces the gap rather than hiding it.
+      </p>
+    </div>
+    <div class="callout">
+      <p class="label">Finding — ECB mid-rate is not PayPal's base rate</p>
+      <p>
+        Whatever spread the solver recovers from inference is the markup versus the public ECB
+        reference rate, not literally PayPal's own (non-public) base rate — the two can differ for
+        reasons that have nothing to do with PayPal's conversion fee. The ledger must label this
+        "effective markup vs. ECB reference," not claim it as PayPal's published 4.0% MEA spread. When
+        Ms. K can read PayPal's own displayed exchange rate off a transaction (the optional field
+        below), the true spread is recoverable exactly, from a single transaction, with no ECB proxy
+        involved.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Engine change — one optional field, everything else untouched</h2>
+    <p>
+      <code>settle</code>/<code>quote</code> in <code>src/lib/fees/engine.ts</code> currently read the
+      rate, fixed fee, and FX spread from module-scope constants (<code>selectTier</code>,
+      <code>currencySpec</code>, <code>FX_SPREAD_RATE</code>). The minimal change that lets a re-derived
+      model flow through without touching either function's logic:
+    </p>
+    <pre>interface CommonInput {
+  // ...existing fields, unchanged...
+  model?: FeeModel;   // { rate, fixedFeeMinorUnits, fxSpreadRate, confidence, asOf }
+}</pre>
+    <p>
+      Absent, the engine builds the model from <code>schedule.ts</code> + <code>currencies.ts</code>
+      exactly as it does today — so all 20 existing tests in <code>engine.test.ts</code> pass
+      <strong>unmodified</strong>, and the same fallback path is what the calculator uses if the
+      database is ever unreachable: it degrades to the committed constants rather than breaking.
+      <code>ratesAsOf</code> becomes the active model's version identifier, which means
+      <code>SharedBreakdown.scheduleAsOf</code> in <code>src/lib/share/breakdown-link.ts</code> and the
+      drift check in <code>src/lib/share/drift.ts</code> keep working unchanged — and now catch a real
+      case they were only built in anticipation of: a <code>/breakdown</code> link created before an
+      accepted model change goes genuinely stale, and <code>hasFrozenDrift()</code> already flags it.
+    </p>
+  </section>
+
+  <section>
+    <h2>Accounts and access</h2>
+    <p>
+      Two Supabase accounts: an <strong>admin</strong> account for the maintainer, and a
+      <strong>user</strong> account for Ms. K. <code>/breakdown</code> must stay publicly readable —
+      clients open those links with no login — so gating is route-level on <code>/ledger*</code>, not
+      Vercel deployment protection over the whole site.
+    </p>
+    <div class="callout ok">
+      <p class="label">Decision — Ms. K can accept a proposed model herself; the admin account can roll one back</p>
+      <p>
+        Requiring admin sign-off on every acceptance would put a person back on the critical path this
+        feature exists to remove. Instead, accepting is self-service, and <code>fee_models</code> is
+        append-only — accepting supersedes the previous row rather than deleting it — so any accepted
+        model can be reverted from an admin-only history view. The cost is asymmetric but bounded: a
+        bad model can reach clients before it's noticed, but it can always be undone, and every prior
+        state stays on the record.
+      </p>
+    </div>
+    <table>
+      <thead><tr><th>Capability</th><th>Ms. K (user)</th><th>Admin</th></tr></thead>
+      <tbody>
+        <tr><td>Record / view transactions</td><td>✓</td><td>✓</td></tr>
+        <tr><td>See plain-language solver status ("your transactions confirm the current rate")</td><td>✓</td><td>✓</td></tr>
+        <tr><td>Accept a proposed model</td><td>✓</td><td>✓</td></tr>
+        <tr><td>See raw solver diagnostics (feasible set, rate bands, prediction spreads)</td><td></td><td>✓</td></tr>
+        <tr><td>Exclude or correct a transaction (typo handling)</td><td></td><td>✓</td></tr>
+        <tr><td>Edit the seeded T1–T3 rows</td><td></td><td>✓</td></tr>
+        <tr><td>Revert to a prior accepted model</td><td></td><td>✓</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Raw diagnostics are admin-only so Ms. K's view stays a plain-language read — "your transactions
+      confirm the current rate" or "3 new transactions rule out the current rate; sent for review" —
+      rather than a page of intervals only useful for auditing the model, which is the admin's job.
+      Transaction correction, T1–T3 edits, and rollback are admin-only because each is a data-quality
+      judgment call of exactly the kind that originally produced <code>4.625% + $0.31</code> — deciding
+      whether a surprising number is real or a mistake.
+    </p>
+  </section>
+
+  <section>
+    <h2>Schema (Supabase Postgres)</h2>
+    <table class="files-table">
+      <thead><tr><th>Table</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>profiles</td><td>One row per Supabase auth user; <code>role: 'admin' | 'user'</code></td></tr>
+        <tr><td>transactions</td><td>Gross minor units, pay currency, received USD cents, buyer country, <code>paid_on</code>, <code>funds_available_on</code> (nullable), optional <code>paypal_fee_minor_units</code> / <code>paypal_fx_rate</code> (PayPal's own displayed figures, when Ms. K can read them off the transaction), cached <code>fx_reference_rate</code> + <code>fx_reference_date</code>, <code>excluded_reason</code> (nullable — <strong>exclude, never delete</strong>, preserving <code>CONSTITUTION.md</code>'s append-don't-replace rule and keeping a suspected typo auditable)</td></tr>
+        <tr><td>fee_models</td><td>Rate, USD fixed fee, FX spread, per-currency fixed fees (jsonb), source transaction ids, <code>proposed_at</code>, <code>accepted_at</code>, <code>accepted_by</code>, <code>superseded_at</code>, note. Append-only; the active model is the latest accepted, un-superseded row.</td></tr>
+      </tbody>
+    </table>
+    <p><strong>Row-level security:</strong></p>
+    <ul class="steps">
+      <li><code>fee_models</code> is <strong>anon-readable</strong> — the public calculator and
+      <code>/breakdown</code> both need the active model, and the rate itself isn't a secret — but
+      write access requires an authenticated session with an accepted proposal, enforced at the
+      application layer above the DB write.</li>
+      <li><code>transactions</code> is authenticated-only in both directions; policies further split
+      write access to <code>excluded_reason</code>, T1–T3 rows, and <code>fee_models</code> inserts to
+      <code>role = 'admin'</code> per the capability table above.</li>
+    </ul>
+    <p>
+      Seed <code>transactions</code> with T1–T3 exactly as recorded in
+      <code>docs/CONSTITUTION.md</code>, and <code>fee_models</code> with today's
+      <code>4.625% + $0.31</code> / 4.0% row, accepted at <code>SCHEDULE_EFFECTIVE_FROM</code>. Seeding
+      must reproduce today's calculator output exactly — the first verification step below.
+    </p>
+  </section>
+
+  <section>
+    <h2>Routes</h2>
+    <table>
+      <thead><tr><th>Route</th><th>Access</th><th>Change</th></tr></thead>
+      <tbody>
+        <tr><td>/</td><td>Public</td><td>Becomes a thin Server Component reading the active model; the existing client calculator moves to <code>src/components/calculator.tsx</code> unchanged</td></tr>
+        <tr><td>/breakdown</td><td>Public</td><td>Reads the active model instead of the <code>schedule.ts</code> constants directly</td></tr>
+        <tr><td>/ledger</td><td>Gated (any authenticated account)</td><td><em>(new)</em> Transaction list, solver status, proposal/confirm UI</td></tr>
+        <tr><td>/ledger/new</td><td>Gated</td><td><em>(new)</em> Entry form</td></tr>
+        <tr><td>/login</td><td>Public</td><td><em>(new)</em> Magic-link sign-in</td></tr>
+      </tbody>
+    </table>
+    <p>
+      No caching layer in this version — the active model is one small row, and the whole audience is
+      one internal user plus her clients reading static breakdowns.
+    </p>
+  </section>
+
+  <section>
+    <h2>The ledger status panel</h2>
+    <p>
+      This is the part of the UI that carries the feature — it should read like a lab result, not a
+      settings page. It states: what the current model is and whether the transactions confirm it; the
+      feasible band and the fee spread it implies at representative amounts (full detail for admin,
+      plain language for Ms. K, per the capability split above); when undetermined, the transaction
+      size that would most tighten it, directly actionable and already implied by
+      <code>CONSTITUTION.md</code>'s own "$500+ would tighten the band by an order of magnitude" note;
+      and when contradicted, exactly which transactions disagree.
+    </p>
+    <p>
+      Follows this repo's existing conventions: hand-rolled controls in the style of
+      <code>calculator-form.tsx</code> (only <code>Input</code> and <code>Label</code> exist under
+      <code>components/ui/</code> — no shadcn <code>Select</code>/<code>Table</code> pulled in), the
+      <code>globals.css</code> palette, and <code>fee-breakdown.tsx</code>'s confidence-badge idiom for
+      showing <code>observed</code> / <code>estimated</code> / <code>unvalidated</code>. Built via the
+      <code>/frontend-design:frontend-design</code> skill per <code>CLAUDE.md</code>.
+    </p>
+  </section>
+
+  <section>
+    <h2>Known limitations to record, not hide</h2>
+    <ul class="steps">
+      <li><strong>Cross-currency inference is proxy-limited.</strong> The FX spread solved from
+      inference is measured against ECB mid, not PayPal's own base rate — see "FX needs a
+      transaction's own date" above. Labeled as such everywhere it's shown.</li>
+      <li><strong>A bad model can go live before the admin notices.</strong> The direct cost of letting
+      Ms. K accept a proposal herself; mitigated, not eliminated, by append-only history and admin
+      rollback.</li>
+      <li><strong>Per-market rates stay unvalidated.</strong> UAE and EEA/UK need their own transactions
+      before they're solvable at all; this plan doesn't get her there, only makes it possible later.</li>
+      <li><code>CONSTITUTION.md</code>'s unexplained ~0.22pp gap between the observed 4.625% and
+      PayPal's published 4.40% stays unresolved, per the user's standing direction — this plan doesn't
+      touch it, and nothing here should be read as resolving it.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Files to create / change</h2>
+    <table class="files-table">
+      <thead><tr><th>Path</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>src/lib/fees/solve.ts <em>(new)</em></td><td>Feasible-model solver, prediction spread</td></tr>
+        <tr><td>src/lib/fees/propose.ts <em>(new)</em></td><td>Decision rules — confirm / propose / contradiction / unresolved</td></tr>
+        <tr><td>src/lib/fees/model.ts <em>(new)</em></td><td><code>FeeModel</code> type; loads the active model from the DB with the <code>schedule.ts</code>/<code>currencies.ts</code> fallback</td></tr>
+        <tr><td>src/lib/db/ <em>(new)</em></td><td>Supabase client, typed queries against <code>transactions</code> / <code>fee_models</code> / <code>profiles</code></td></tr>
+        <tr><td>src/lib/auth/ <em>(new)</em></td><td>Session helpers, role check for admin-only actions</td></tr>
+        <tr><td>src/app/ledger/page.tsx, ledger/new/page.tsx, login/page.tsx <em>(new)</em></td><td>Ledger routes</td></tr>
+        <tr><td>src/components/ledger/* <em>(new)</em></td><td>Status panel, transaction list, entry form</td></tr>
+        <tr><td>supabase/migrations/*.sql <em>(new)</em></td><td>Schema, RLS policies, T1–T3 + current-model seed</td></tr>
+        <tr><td>src/lib/fees/engine.ts</td><td>Optional <code>model</code> field on <code>CommonInput</code>; no other logic change</td></tr>
+        <tr><td>src/lib/fx/frankfurter.ts</td><td>Optional <code>date</code> argument on <code>getFxRateToUSD</code></td></tr>
+        <tr><td>src/app/page.tsx</td><td>Split into a Server Component reading the active model + <code>src/components/calculator.tsx</code></td></tr>
+        <tr><td>src/app/breakdown/page.tsx</td><td>Reads the active model instead of the constants directly</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Doc updates in the same change, per <code>CLAUDE.md</code> § "Before pushing to remote":
+      <code>docs/CONSTITUTION.md</code> (roadmap entry for v0.5; observed-transactions section now
+      points at the ledger as the live source, kept rather than deleted; the six-feasible-models finding
+      recorded), <code>docs/plan.html</code> (kept in sync by design), <code>docs/CHANGELOG.md</code>,
+      <code>CLAUDE.md</code> § "Project status", and <code>README.md</code>.
+    </p>
+  </section>
+
+  <section>
+    <h2>Execution order</h2>
+    <ol class="exec">
+      <li><code>docs/plan-v0.5.html</code> — this document.</li>
+      <li><code>solve.ts</code> + <code>propose.ts</code> with tests, pure and entirely offline — no
+      database, no UI. Locks the math before any infrastructure exists.</li>
+      <li><code>vercel integration add supabase</code>; migrations; seed T1–T3 and the current model.</li>
+      <li>Auth (magic link) and gated <code>/ledger*</code> routes, admin/user role split.</li>
+      <li>Thread <code>model</code> through the engine; <code>/</code> and <code>/breakdown</code> read
+      the active model.</li>
+      <li>Ledger UI — status panel, entry form, accept/reject.</li>
+      <li>Docs.</li>
+    </ol>
+    <p>
+      Steps 1–2 are independently valuable and carry essentially all of the mathematical risk; if
+      Supabase provisioning stalls for any reason, the solver still stands on its own and can be
+      reviewed and tested in isolation.
+    </p>
+  </section>
+
+  <section>
+    <h2>Verification</h2>
+    <ul class="steps">
+      <li><code>pnpm test</code> — all 20 existing engine tests pass <strong>unmodified</strong>. Not
+      negotiable: the T1–T3 regression locks, the 4.40%-refutation guard, the JPY minor-unit scaling
+      lock, and the round-trip sweeps must not move.</li>
+      <li><strong>Seeded-solver test</strong> — T1–T3 alone yields exactly the six feasible fixed fees
+      above, the current model is feasible, and the verdict is "confirmed, not yet uniquely determined."
+      No proposal is emitted.</li>
+      <li><strong>Contradiction test</strong> — inject a deliberately mistyped transaction; the feasible
+      set becomes empty; the existing model is retained and the conflicting transaction is named.</li>
+      <li><strong>Resolution test</strong> — synthesize a $500 and a $2,000 transaction from a known
+      <code>(rate, fixed)</code> pair; the solver recovers it, the prediction spread collapses below
+      tolerance, and a proposal is emitted.</li>
+      <li><strong>Fallback test</strong> — with the database unreachable, <code>settle</code>/<code>quote</code>
+      still return today's committed figures.</li>
+      <li><strong>FX date test</strong> — stub <code>fetch</code> per the existing pattern in
+      <code>frankfurter.test.ts</code>; assert the <code>date</code> parameter is sent and a rolled-back
+      ECB date is surfaced rather than hidden.</li>
+      <li><strong>End-to-end</strong>, via the <code>claude-for-safari</code> skill per
+      <code>CLAUDE.md</code> (new tab, screenshot to <code>.playwright-mcp/</code>, close and clean up
+      when done): sign in as each role; add a transaction and watch the status panel change; confirm a
+      proposal as Ms. K; verify <code>/</code> and a fresh <code>/breakdown</code> link both reflect the
+      accepted model; verify a <code>/breakdown</code> link generated <em>before</em> acceptance now
+      shows the drift warning; confirm the admin-only rollback restores the prior model.</li>
+      <li><code>pnpm typecheck</code>, <code>pnpm build</code> clean.</li>
+      <li>Confirm <code>git status</code> is clean of screenshots and temp files before pushing, per
+      <code>CLAUDE.md</code> § "Visual verification and debugging."</li>
+    </ul>
+  </section>
+
+  <footer class="sources">
+    <strong>Sources</strong>
+    <ul>
+      <li><a href="CONSTITUTION.md">docs/CONSTITUTION.md</a> — "Observed transactions (ground truth)"
+      (T1–T3 figures and the existing regression method this plan generalizes), roadmap's v1.0+ entry
+      (the PayPal-API-reconciliation idea this plan implements by hand-entry instead), "Design
+      principles" (quote/settle ordering, preserved unchanged)</li>
+      <li><a href="plan-v0.4.html">docs/plan-v0.4.html</a> — house style this document follows; the
+      <code>currencies.ts</code>/<code>markets.ts</code> source-of-truth pattern this plan's
+      <code>fee_models</code> schema extends</li>
+      <li><a href="plan-share-link-drift.html">docs/plan-share-link-drift.html</a> — the trust-boundary
+      design (<code>hasFrozenDrift()</code> as a warning signal, never a source of truth) that this
+      plan's model-versioning change now gives a genuine drift case to detect</li>
+      <li><code>src/lib/fees/{engine,schedule,currencies,money}.ts</code>,
+      <code>src/lib/fees/engine.test.ts</code>, <code>src/lib/fx/frankfurter.ts</code>,
+      <code>src/lib/share/{breakdown-link,drift}.ts</code>, <code>src/app/{page,breakdown/page}.tsx</code>
+      — the implemented v0.1–v0.4 surfaces this plan builds on, read in full before drafting</li>
+      <li><a href="https://frankfurter.dev/">Frankfurter API</a> — verified v2 historical-rates endpoint
+      (<code>?date=YYYY-MM-DD</code>), ECB data back to 1948, no quota</li>
+      <li>Vercel Marketplace discovery (<code>vercel integration discover --category storage</code> /
+      <code>authentication</code>) — Supabase is the one provider appearing in both categories, the
+      basis for the single-integration recommendation above</li>
+    </ul>
+  </footer>
+
+</div>
+</body>
+</html>

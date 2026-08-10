@@ -24,11 +24,22 @@ interface FrankfurterEntry {
  * isolated"). Requesting base=payCurrency&quotes=USD returns the rate
  * already in the units the engine wants (USD per 1 unit of payCurrency),
  * with no inversion needed.
+ *
+ * `date` (YYYY-MM-DD) requests the historical rate for that day instead of
+ * the latest — needed by the v0.5 ledger, where a recorded transaction's
+ * FX rate must be the rate on its payment date, not today's (see
+ * docs/plan-v0.5.html "FX needs a transaction's own date, not today's").
+ * ECB, Frankfurter's source, publishes business days only — the response's
+ * own `asOf` may therefore precede the requested date, and callers should
+ * surface that gap rather than assume an exact match.
  */
 export async function getFxRateToUSD(
   payCurrency: Exclude<Currency, typeof ACCOUNT_CURRENCY>,
+  date?: string,
 ): Promise<FxRate> {
-  const url = `${FRANKFURTER_BASE_URL}?base=${payCurrency}&quotes=USD`;
+  const url = date
+    ? `${FRANKFURTER_BASE_URL}?date=${date}&base=${payCurrency}&quotes=USD`
+    : `${FRANKFURTER_BASE_URL}?base=${payCurrency}&quotes=USD`;
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(
