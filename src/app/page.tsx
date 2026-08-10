@@ -113,7 +113,17 @@ export default function Home() {
         </p>
       </header>
 
-      <ModeToggle mode={mode} onChange={setMode} />
+      <ModeToggle
+        mode={mode}
+        onChange={(nextMode) => {
+          // The amount field means a different thing in each mode (target net,
+          // always USD, in quote mode; gross paid, in payCurrency, in settle
+          // mode) — clear it on switch rather than silently reinterpreting
+          // whatever number is already typed under the other meaning.
+          setMode(nextMode);
+          setAmountInput("");
+        }}
+      />
 
       <div className="mt-8">
         <CalculatorForm
