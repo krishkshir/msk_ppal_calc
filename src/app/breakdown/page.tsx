@@ -8,7 +8,7 @@ import { SCHEDULE_EFFECTIVE_FROM } from "@/lib/fees/schedule";
 import type { Breakdown } from "@/lib/fees/types";
 import { formatMoney } from "@/lib/format";
 import { decodeBreakdownParams, type SharedBreakdown } from "@/lib/share/breakdown-link";
-import { applyFrozenFigures, breakdownFromFrozenOnly, hasFrozenDrift } from "@/lib/share/drift";
+import { hasFrozenDrift } from "@/lib/share/drift";
 
 type SearchParams = { [key: string]: string | string[] | undefined };
 
@@ -25,7 +25,7 @@ const resolve = cache((raw: SearchParams): Resolved => {
   if (!decoded.ok) return { status: "decode-error", reason: decoded.reason };
 
   const shared = decoded.value;
-  const { grossPaidMinorUnits, payCurrency, buyerMarket, fx, frozen, scheduleAsOf } = shared;
+  const { grossPaidMinorUnits, payCurrency, buyerMarket, fx, frozen } = shared;
 
   try {
     const breakdown = settle({
@@ -36,28 +36,13 @@ const resolve = cache((raw: SearchParams): Resolved => {
       fxBaseRateToUSD: fx?.rate,
     });
 
-    if (!frozen || !hasFrozenDrift(breakdown, frozen)) {
-      return { status: "ok", breakdown, shared, drifted: false };
-    }
-    return {
-      status: "ok",
-      breakdown: applyFrozenFigures(breakdown, frozen, scheduleAsOf),
-      shared,
-      drifted: true,
-    };
+    // frozen (fee/net/spread) is unsigned and attacker-editable, so it's
+    // used only as a signal for whether to warn — the displayed
+    // breakdown is always this genuine recomputation, never frozen's
+    // numbers. See docs/plan-share-link-drift.html "Trust boundary".
+    const drifted = frozen != null && hasFrozenDrift(breakdown, frozen);
+    return { status: "ok", breakdown, shared, drifted };
   } catch (error) {
-    // The current engine may no longer accept inputs a pre-fix link once
-    // settled successfully. With frozen figures on hand, the link can
-    // still render what the client was originally quoted instead of
-    // becoming completely unrenderable — see docs/plan-share-link-drift.html.
-    if (frozen) {
-      return {
-        status: "ok",
-        breakdown: breakdownFromFrozenOnly({ ...shared, frozen }),
-        shared,
-        drifted: true,
-      };
-    }
     return { status: "engine-error", message: describeCalculationError(error) };
   }
 });
@@ -126,9 +111,9 @@ export default async function BreakdownPage(props: PageProps<"/breakdown">) {
           {resolved.shared.frozen ? (
             resolved.drifted ? (
               <p className="mt-4 border-t border-rule pt-3 font-mono text-xs text-brass">
-                These figures are what this link originally showed, computed under the fee
-                schedule as of {resolved.shared.scheduleAsOf}. Our current schedule would compute
-                this payment differently.
+                This link was created under an earlier fee schedule or calculation methodology;
+                the exact amount originally shown for this payment may have differed from
+                what&apos;s shown above.
               </p>
             ) : null
           ) : resolved.shared.scheduleAsOf !== SCHEDULE_EFFECTIVE_FROM ? (

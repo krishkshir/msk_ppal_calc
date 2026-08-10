@@ -169,8 +169,25 @@
     <p class="subtitle">A code-review finding from PR 4 (v0.4), deliberately left unfixed by that
     automated pass because the correct repair is a design decision, not a mechanical patch. This is
     that decision, written up before implementing it.</p>
-    <p style="margin-top:1rem"><span class="status-pill">Proposed</span></p>
+    <p style="margin-top:1rem"><span class="status-pill">Implemented</span></p>
   </header>
+
+  <div class="callout">
+    <p class="label">Revision — the first implementation trusted unsigned data</p>
+    <p>
+      The plan below originally called for <em>displaying</em> the frozen <code>fee</code>/
+      <code>net</code>/<code>spread</code> figures whenever they disagreed with a fresh
+      recomputation, captioned as "what this link originally showed." A follow-up code review
+      caught the flaw before it shipped further: those params are unsigned and fully
+      attacker-editable — anyone holding the URL can set <code>fee=1&amp;net=99999</code> and the
+      page would have rendered exactly that, with the app's own UI vouching for it as genuine. That
+      is a strictly worse trust story than the bug this plan set out to fix, which could only ever
+      show the output of a <em>real</em> <code>settle()</code> call for some (possibly
+      attacker-chosen) input — never an arbitrary fabricated number. Every section below reflects
+      the corrected, shipped design: frozen figures are used <strong>only</strong> to decide whether
+      to warn, never to choose what's displayed. See "Trust boundary" below.
+    </p>
+  </div>
 
   <section>
     <h2>The bug</h2>
@@ -229,6 +246,19 @@
         Encode the amounts the link's owner actually saw at creation time, and on every open,
         recompute from the frozen inputs and compare. Any divergence — from any future cause, not
         just this one — trips the warning automatically. No constant for anyone to forget to update.
+      </p>
+    </div>
+    <div class="callout ok">
+      <p class="label">Trust boundary — frozen figures are a signal, never a source of truth</p>
+      <p>
+        The frozen trio is unsigned data sitting in a URL query string, with nothing tying it to a
+        genuine past <code>settle()</code> output — no server-side record, no signature, no secret.
+        Anyone holding the link can edit it. So the comparison's result is used for exactly one
+        thing: deciding whether to show a warning. The number actually rendered on screen is
+        <strong>always</strong> this request's fresh <code>settle()</code> recomputation, regardless
+        of drift. This gives up the "show the exact original quote" property the earlier draft of
+        this plan wanted, but it's the only version of this feature that doesn't let anyone turn the
+        client-facing breakdown into a forgery tool.
       </p>
     </div>
   </section>
@@ -295,17 +325,15 @@
     <ul class="steps">
       <li>In <code>resolve()</code>, keep the existing <code>settle()</code> call, then compare the
       recomputed <code>commercialFee.minorUnits</code> / <code>received.minorUnits</code> /
-      <code>fxConversion?.minorUnits</code> against <code>shared.frozen</code>. Any difference means
-      the link has drifted.</li>
-      <li>On drift, render the <em>frozen</em> figures: take the recomputed <code>Breakdown</code> as
-      a template and override its three <code>minorUnits</code> fields (and
-      <code>fxConversion.minorUnits</code> when present) with the frozen values, plus set
-      <code>ratesAsOf: shared.scheduleAsOf</code> so the footer date matches the figures above it
-      instead of the current schedule.</li>
-      <li><strong>Robustness win:</strong> if a future engine change makes <code>settle()</code> throw
-      on inputs that used to be valid, the page today degrades straight to <code>engine-error</code>.
-      With frozen figures present, it can still render them — a shared link never becomes
-      completely unrenderable just because the current engine no longer accepts its inputs.</li>
+      <code>fxConversion?.minorUnits</code> against <code>shared.frozen</code> via
+      <code>hasFrozenDrift()</code> (<code>src/lib/share/drift.ts</code>). Any difference sets a
+      <code>drifted</code> flag.</li>
+      <li>The rendered <code>breakdown</code> is <strong>always</strong> the fresh recomputation —
+      <code>drifted</code> only controls whether the warning paragraph appears, never which numbers
+      are shown. There is no code path that displays <code>shared.frozen</code>'s values. If
+      <code>settle()</code> throws on the link's inputs, the page shows the same
+      <code>engine-error</code> it always has — frozen figures are not used as a fallback source of
+      truth, since there would be nothing to compare them against to establish they're genuine.</li>
       <li><strong>Warning precedence:</strong> when <code>shared.frozen</code> is present, output
       comparison is the <em>sole</em> drift signal and replaces the <code>sched</code>-date check for
       that link. This is strictly better, not just different — it drops today's false positive where
@@ -335,11 +363,16 @@
       papers over. That cohort is fixed in size (every link created before this ships) and shrinks
       to zero as old links age out of use.</li>
       <li><strong>A tampered <code>net</code>/<code>fee</code>/<code>spread</code> only ever produces
-      a spurious drift warning, never a wrong displayed figure</strong> — the page always recomputes
-      from <code>gross</code>/<code>cur</code>/<code>mkt</code>/<code>fx</code> first and only uses
-      the frozen numbers to decide whether to show a warning and which numbers to prefer; it never
-      trusts an unvalidated frozen number as the sole source of a displayed amount without also
-      having computed a same-shape number to compare it against.</li>
+      a spurious warning (present or absent), never a wrong displayed figure</strong> — by the
+      "Trust boundary" decision above, the displayed breakdown is always the fresh
+      <code>settle()</code> recomputation, so a forged frozen value can make the page warn when it
+      shouldn't (or stay silent when it should have warned, if someone forges figures that happen to
+      match), but it can never make the page <em>show</em> a number that isn't a genuine engine
+      output for the link's <code>gross</code>/<code>cur</code>/<code>mkt</code>/<code>fx</code>.
+      That residual — a forged link can suppress or fake a warning — is accepted: it's strictly no
+      worse than the original bug (silently wrong, no warning at all), and closing it fully would
+      need signing infrastructure (a server-side secret, an API route) disproportionate to what a
+      "not financial or legal advice" estimator warrants.</li>
     </ul>
   </section>
 
@@ -349,9 +382,10 @@
       <thead><tr><th>Path</th><th>Change</th></tr></thead>
       <tbody>
         <tr><td>src/lib/share/breakdown-link.ts</td><td>Optional <code>frozen</code> group on <code>SharedBreakdown</code>; atomic present/absent validation; <code>spread</code> coupled to <code>fx</code>; encode the trio when present</td></tr>
-        <tr><td>src/app/breakdown/page.tsx</td><td><code>resolve()</code> compares recomputed vs. frozen figures; renders frozen figures + note on drift; legacy <code>sched</code>-date path kept as fallback with direction-agnostic copy</td></tr>
+        <tr><td>src/lib/share/drift.ts <em>(new)</em></td><td><code>hasFrozenDrift()</code> — the only frozen-figures logic; a pure comparison, never a source of displayed data</td></tr>
+        <tr><td>src/app/breakdown/page.tsx</td><td><code>resolve()</code> always renders the recomputed <code>Breakdown</code>; <code>hasFrozenDrift()</code> only sets a <code>drifted</code> flag controlling the warning; legacy <code>sched</code>-date path kept as fallback for links with no frozen group, with direction-agnostic copy</td></tr>
         <tr><td>src/app/page.tsx</td><td>L188-196 — populate <code>shared.frozen</code> from <code>calculation.breakdown</code> when building the object passed to <code>ShareLink</code></td></tr>
-        <tr><td>src/lib/share/breakdown-link.test.ts</td><td>New round-trip, backward-compat, atomicity, and coupling cases; a regression test pinning the actual CAD 66809→66818 drift</td></tr>
+        <tr><td>src/lib/share/breakdown-link.test.ts, src/lib/share/drift.test.ts <em>(new)</em></td><td>New round-trip, backward-compat, atomicity, and coupling cases; a regression test pinning the actual CAD 66809→66818 drift signal; a forged-figures test asserting drift detection doesn't validate provenance</td></tr>
         <tr><td>docs/CHANGELOG.md, CLAUDE.md § "Project status"</td><td>Logged per CLAUDE.md § "Before pushing to remote"</td></tr>
       </tbody>
     </table>
@@ -374,16 +408,21 @@
       rejection for each of the three.</li>
       <li>A regression test pinning the actual bug: decode a hand-written pre-v0.4-shaped CAD link
       carrying <code>net=66809</code> (the old FX-derived figure), confirm a fresh
-      <code>settle()</code> on its inputs yields <code>66818</code>, and assert the page's resolved
-      result flags drift and prefers <code>66809</code>.</li>
+      <code>settle()</code> on its inputs yields <code>66818</code>, and assert
+      <code>hasFrozenDrift()</code> flags it. A companion test asserts a forged trio
+      (<code>fee=1&amp;net=99999</code>) also flags drift — confirming detection works without
+      confirming or needing provenance, per the "Trust boundary" decision.</li>
       <li>A structural-identity test asserting <code>gross − fee === net</code> for USD-only cases —
       kept as a test invariant rather than a decode-time validator, so decode logic stays simple and
       the assertion still catches a future engine change.</li>
       <li><code>pnpm typecheck</code>, <code>pnpm build</code>.</li>
       <li><code>pnpm dev</code>, then the <code>claude-for-safari</code> skill (new tab, screenshot,
       close the tab, delete screenshots when done) against: a freshly generated link (no warning); a
-      hand-edited link with a wrong <code>net</code> (frozen figures render, with the note); a legacy
-      link with no trio (renders exactly as today, via the <code>sched</code>-date fallback).</li>
+      link with a genuinely stale frozen trio (warning, but the <strong>recomputed</strong> figure
+      renders, not the stale one); a link with a wildly forged trio like <code>fee=1&amp;net=99999</code>
+      (warning fires, but the amount shown is still the genuine recomputation — confirms the forgery
+      is inert); a legacy link with no trio (renders exactly as today, via the
+      <code>sched</code>-date fallback).</li>
       <li>Confirm <code>git status</code> is clean of screenshots and temp files before pushing, per
       <code>CLAUDE.md</code> § "Visual verification and debugging."</li>
     </ul>
@@ -403,6 +442,9 @@
       original param set this plan extends</li>
       <li>The <code>/code-review --fix PR 4</code> run that surfaced this finding and its verifier
       sub-agent's confirmation of the 66809 → 66818 CAD divergence</li>
+      <li>The <code>/code-review --fix since last review</code> run against this plan's own first
+      implementation, which caught the unsigned-data trust issue described in "Revision" above and
+      "Trust boundary" — the source of this document's corrected design</li>
     </ul>
   </footer>
 

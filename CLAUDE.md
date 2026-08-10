@@ -62,13 +62,20 @@ change (v0.4's CAD fixed fee moving from FX-derived to a flat lookup left
 `SCHEDULE_EFFECTIVE_FROM` untouched, so a pre-v0.4 CAD share link silently
 rendered a different received amount). `SharedBreakdown` (`src/lib/share/breakdown-link.ts`)
 now optionally freezes the computed commercial fee, FX spread, and received
-amount (`fee`/`net`/`spread` query params) alongside the inputs; the new
-`src/lib/share/drift.ts` compares a fresh recomputation against them and, on
-any mismatch, renders the frozen originals — what the client was actually
-quoted — with a note, rather than the recomputed figures. Links created
-before this fix carry no frozen figures and keep falling back to the old
+amount (`fee`/`net`/`spread` query params) alongside the inputs. **These
+frozen figures are a warning signal only, never a source of truth for what's
+displayed** — a follow-up code review on the first version of this fix caught
+that they're unsigned, attacker-editable query params with no cryptographic
+link to a genuine past `settle()` call, and the first version rendered them
+directly on mismatch, letting anyone holding a link's URL make the page
+display arbitrary fabricated figures captioned as genuine. `src/lib/share/drift.ts`'s
+`hasFrozenDrift()` compares a fresh recomputation against the frozen trio
+purely to decide whether to show a warning; the breakdown actually rendered
+is always the fresh recomputation, regardless of drift. Links created before
+this fix carry no frozen figures and keep falling back to the old
 `scheduleAsOf` comparison (now worded direction-agnostically). See
-`docs/plan-share-link-drift.html` for the design this was built from.
+`docs/plan-share-link-drift.html` for the design this was built from,
+including the "Trust boundary" section documenting this revision.
 
 Commands (via `pnpm`):
 

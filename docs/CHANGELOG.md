@@ -7,6 +7,42 @@ the substantive changes.
 
 ## Unreleased
 
+- Fixed a security regression in the share-link staleness fix below, found
+  by a follow-up code review run against it before it was pushed further.
+  The staleness fix's first version rendered the frozen `fee`/`net`/`spread`
+  figures directly whenever they disagreed with a fresh recomputation,
+  captioned as "what this link originally showed" — but those are unsigned,
+  attacker-editable query params with no cryptographic link to a genuine
+  past `settle()` call, so anyone holding a link's URL could set
+  `fee=1&net=99999` and have the page display exactly that, vouched for as
+  genuine. Strictly worse than the bug being fixed, which could only ever
+  show a *real* `settle()` output for some input, never an arbitrary
+  fabricated number. See `docs/plan-share-link-drift.html` § "Trust
+  boundary" for the corrected design.
+  - `src/lib/share/drift.ts` — `applyFrozenFigures()` and
+    `breakdownFromFrozenOnly()` removed entirely; only `hasFrozenDrift()`
+    remains, used purely as a signal for whether to warn, never as a
+    source of displayed data.
+  - `src/app/breakdown/page.tsx` — `resolve()` always returns the fresh
+    `settle()` recomputation as `breakdown`; `hasFrozenDrift()` only sets a
+    `drifted` flag. If `settle()` throws, the page shows the same
+    `engine-error` it always has, regardless of whether frozen figures are
+    present — there's no recomputation to compare them against in that
+    case, so there's no way to establish they're genuine before falling
+    back to them. The drift warning's copy no longer claims to show "what
+    this link originally showed" (it doesn't); it now says the original
+    amount "may have differed from what's shown above."
+  - `src/lib/share/drift.test.ts` — tests for the removed functions
+    dropped; added a test asserting `hasFrozenDrift()` correctly flags a
+    forged trio (`fee=1&net=99999`) as drifted, confirming detection works
+    without needing or claiming provenance.
+  - Accepted residual, documented rather than hidden: a forged frozen trio
+    can still suppress a genuine drift warning (by matching the current
+    recomputation) or cause a spurious one — but can never make the page
+    display a fabricated amount. Closing that residual would need signing
+    infrastructure (a server-side secret, an API route) judged
+    disproportionate to what a "not financial or legal advice" estimator
+    warrants.
 - Fixed the share-link staleness-check bug found by the v0.4 code review
   (deliberately left unfixed by that automated pass, since the correct
   repair was a design decision — see `docs/plan-share-link-drift.html`).
