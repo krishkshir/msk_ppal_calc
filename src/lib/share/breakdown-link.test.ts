@@ -136,4 +136,24 @@ describe("decodeBreakdownParams — rejects malformed or tampered input", () => 
       },
     });
   });
+
+  it("rejects an empty gross rather than silently coercing it to 0", () => {
+    expect(decodeBreakdownParams({ ...valid, gross: "" })).toEqual({
+      ok: false,
+      reason: "gross is missing",
+    });
+  });
+
+  it("rejects a schedule date that doesn't exist on the calendar (Date.parse day-rollover)", () => {
+    expect(decodeBreakdownParams({ ...valid, sched: "2026-02-30" })).toEqual({
+      ok: false,
+      reason: "sched must be a YYYY-MM-DD date",
+    });
+  });
+
+  it("rejects an fx date that doesn't exist on the calendar (Date.parse day-rollover)", () => {
+    expect(
+      decodeBreakdownParams({ ...valid, cur: "CAD", fx: "0.73", on: "2026-04-31" }),
+    ).toEqual({ ok: false, reason: "on must be a YYYY-MM-DD date" });
+  });
 });

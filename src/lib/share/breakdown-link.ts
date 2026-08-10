@@ -33,7 +33,13 @@ function isBuyerMarket(value: string): value is BuyerMarket {
 }
 
 function isValidDateString(value: string): boolean {
-  return DATE_PATTERN.test(value) && !Number.isNaN(Date.parse(value));
+  // Date.parse rolls an out-of-range day into the next month (e.g.
+  // "2026-02-30" -> 2026-03-02) instead of rejecting it, so a regex +
+  // Date.parse check alone would silently accept a nonexistent calendar
+  // date. Re-render the parsed date and require it to match verbatim.
+  if (!DATE_PATTERN.test(value)) return false;
+  const parsed = new Date(value);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
 /** Query params can repeat a key, yielding an array — take the first value. */
@@ -65,7 +71,7 @@ export function decodeBreakdownParams(
   const on = firstValue(raw.on);
   const sched = firstValue(raw.sched);
 
-  if (gross === undefined) return { ok: false, reason: "gross is missing" };
+  if (gross === undefined || gross.trim() === "") return { ok: false, reason: "gross is missing" };
   const grossPaidCents = Number(gross);
   if (!Number.isInteger(grossPaidCents) || grossPaidCents < 0) {
     return { ok: false, reason: "gross must be a non-negative integer" };

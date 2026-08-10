@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { cache } from "react";
 import { FeeBreakdown } from "@/components/fee-breakdown";
 import { describeCalculationError } from "@/lib/fees/errors";
 import { settle } from "@/lib/fees/engine";
@@ -15,7 +16,10 @@ type Resolved =
   | { status: "engine-error"; message: string }
   | { status: "ok"; breakdown: Breakdown; shared: SharedBreakdown };
 
-function resolve(raw: SearchParams): Resolved {
+// generateMetadata and the page component are both invoked for the same
+// request; cache() dedupes the decode+settle() work between them instead
+// of running it twice.
+const resolve = cache((raw: SearchParams): Resolved => {
   const decoded = decodeBreakdownParams(raw);
   if (!decoded.ok) return { status: "decode-error", reason: decoded.reason };
 
@@ -32,7 +36,7 @@ function resolve(raw: SearchParams): Resolved {
   } catch (error) {
     return { status: "engine-error", message: describeCalculationError(error) };
   }
-}
+});
 
 export async function generateMetadata(
   props: PageProps<"/breakdown">,

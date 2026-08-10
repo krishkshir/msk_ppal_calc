@@ -7,6 +7,37 @@ the substantive changes.
 
 ## Unreleased
 
+- Code review of the v0.3 diff found and fixed 5 issues (`/code-review
+  --fix`); typecheck/tests/build verified green before and after:
+  - `src/components/share-link.tsx` — the clipboard write had no
+    try/catch, so a blocked `navigator.clipboard.writeText` (insecure
+    context, denied permission) threw an unhandled rejection and the
+    button silently never showed "Copied"; wrapped in try/catch. The
+    `useEffect` resetting `copied` depended on the whole `shared` object,
+    which the calculator passes as a fresh literal every render, so the
+    effect re-fired (snapping "Copied" back prematurely) on any unrelated
+    parent re-render, e.g. an in-flight FX fetch resolving mid-copy;
+    narrowed the dependency array to the individual encoded fields.
+  - `src/lib/share/breakdown-link.ts` — `isValidDateString` used regex +
+    `Date.parse`, but `Date.parse` silently rolls an out-of-range day into
+    the next month (`"2026-02-30"` → 2026-03-02) instead of rejecting it,
+    so a link with a nonexistent calendar date in `sched` or `on` decoded
+    successfully and could render a drift warning showing the literal
+    nonsense date; now re-serializes the parsed date and requires an exact
+    match. Also, `gross === undefined` was the only "missing" check, but
+    `Number("")` is `0`, a valid non-negative integer, so an empty/
+    whitespace `gross` param was silently accepted as $0 instead of
+    rejected as malformed; added an explicit empty-string check.
+  - `src/app/breakdown/page.tsx` — `resolve()` (decode + `settle()`) was
+    called separately from both `generateMetadata` and the page component,
+    redoing the same work twice per request; wrapped in React's `cache()`.
+  - `src/lib/share/breakdown-link.test.ts` — 3 new regression tests for
+    the above (empty gross, invalid `sched` date, invalid `on` date).
+  - Not fixed, flagged only: `CURRENCIES`/`BUYER_MARKETS` in
+    `breakdown-link.ts` hand-duplicate the `Currency`/`BuyerMarket` unions
+    from `types.ts` with no compile-time exhaustiveness check — harmless
+    today, but v0.4's broader currency coverage could add a `Currency`
+    member without this file being updated to match.
 - Implemented v0.3: the shareable, URL-encoded client-facing breakdown, per
   `docs/plan-v0.3.html`.
   - `src/lib/share/breakdown-link.ts` — pure `encodeBreakdownParams` /

@@ -15,7 +15,10 @@ export function ShareLink({ shared }: ShareLinkProps) {
   useEffect(() => {
     setUrl(`${window.location.origin}/breakdown?${encodeBreakdownParams(shared)}`);
     setCopied(false);
-  }, [shared]);
+    // Depend on the encoded fields, not `shared`'s object identity — the
+    // parent passes a fresh literal every render, which would otherwise
+    // reset `copied` back to false on any unrelated parent re-render.
+  }, [shared.grossPaidCents, shared.payCurrency, shared.buyerMarket, shared.fx?.rate, shared.fx?.asOf, shared.scheduleAsOf]);
 
   if (!url) return null;
 
@@ -28,9 +31,14 @@ export function ShareLink({ shared }: ShareLinkProps) {
         <button
           type="button"
           onClick={async () => {
-            await navigator.clipboard.writeText(url);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
+            try {
+              await navigator.clipboard.writeText(url);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            } catch {
+              // Clipboard access can be blocked (insecure context, denied permission).
+              // The URL is still visible and selectable in the input below.
+            }
           }}
           className="shrink-0 rounded-md bg-teal px-4 py-1.5 font-mono text-xs tracking-wider text-paper uppercase transition-colors hover:bg-teal/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
         >
