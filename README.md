@@ -12,6 +12,37 @@ Original request:
 
 <https://www.designhill.com/tools/paypal-fee-calculator>
 
+## The transaction ledger
+
+As of v0.5, Ms. K can record real PayPal transactions herself at
+`/ledger`, and the app re-derives the fee model from them instead of
+that being a manual, code-level edit.
+
+- **Sign in at `/ledger`** — enter your email and a sign-in link is sent
+  to it; no password. Click the link on the same device to complete
+  sign-in. New accounts default to the `user` role.
+- **Record a transaction** via "Record a transaction" on the ledger page
+  — what the client paid, what actually landed in the USD balance, the
+  buyer's country, and (if PayPal showed them to you) its own fee line
+  and exchange rate, which sharply tighten what can be determined for a
+  non-USD payment.
+- **The status panel** on `/ledger` shows whether the recorded
+  transactions still confirm the current rate, propose a new one, or
+  contradict each other — and, if a new model is determined closely
+  enough, an "Accept this model" button. Nothing changes silently;
+  accepting is always a deliberate click.
+- **Admin accounts** additionally see full feasibility diagnostics, can
+  exclude or correct a transaction (kept, not deleted, so the record
+  stays auditable), and can revert to any previously accepted model.
+  Promoting an account to admin is a one-time manual step in the
+  Supabase dashboard/SQL editor — see `CLAUDE.md` § "Supabase" — not
+  something done through the app.
+
+The public calculator (`/`) and the shareable breakdown (`/breakdown`)
+need no sign-in and are unaffected either way. See `docs/plan-v0.5.html`
+for the full design, including why the fee model can't ever be reduced
+to one "true" number from a small number of transactions.
+
 ## Running locally
 
 Requires Node.js and [pnpm](https://pnpm.io).
