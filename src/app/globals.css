@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+/*
+ * This app has exactly one theme (light) and never applies a .dark
+ * class anywhere. Gating Tailwind's `dark:` variant on a class that's
+ * never present neutralizes every `dark:` utility baked into shadcn's
+ * generated components, instead of falling back to Tailwind's default
+ * `prefers-color-scheme` media query — which would otherwise silently
+ * re-activate a dark theme we never designed for on dark-mode systems.
+ */
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-ink: #12203a;
+  --color-paper: #fbfaf7;
+  --color-paper-dim: #f3f1ea;
+  --color-rule: #dad5c7;
+  --color-oxide: #a6432b;
+  --color-teal: #1f6f5c;
+  --color-brass: #c9a227;
+  /* Caption/secondary text. Deliberately not named --color-muted: shadcn
+     reserves "muted"/"muted-foreground" as a background/foreground pair
+     (see below) — reusing the name here would silently override it. */
+  --color-caption: #5b6472;
+
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-plex-sans), "Segoe UI", system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+/*
+ * shadcn/ui components (button, input, select, tabs, ...) read these
+ * variable names directly. Mapped to the palette above instead of
+ * shadcn's default neutral-gray theme — this app has no dark mode.
+ */
+@theme inline {
+  --color-background: var(--color-paper);
+  --color-foreground: var(--color-ink);
+  --color-card: var(--color-paper);
+  --color-card-foreground: var(--color-ink);
+  --color-popover: var(--color-paper);
+  --color-popover-foreground: var(--color-ink);
+  --color-primary: var(--color-teal);
+  --color-primary-foreground: var(--color-paper);
+  --color-secondary: var(--color-paper-dim);
+  --color-secondary-foreground: var(--color-ink);
+  --color-muted: var(--color-paper-dim);
+  --color-muted-foreground: var(--color-caption);
+  --color-accent: var(--color-paper-dim);
+  --color-accent-foreground: var(--color-ink);
+  --color-destructive: var(--color-oxide);
+  --color-destructive-foreground: var(--color-paper);
+  --color-border: var(--color-rule);
+  --color-input: var(--color-rule);
+  --color-ring: var(--color-teal);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+:root {
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}

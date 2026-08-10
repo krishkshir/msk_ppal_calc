@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan v0.2 — msk_ppal_calc</title>
+<style>
+  :root {
+    --ink: #12203A;
+    --paper: #FBFAF7;
+    --paper-dim: #F3F1EA;
+    --rule: #DAD5C7;
+    --red: #A6432B;
+    --teal: #1F6F5C;
+    --brass: #C9A227;
+    --muted: #5B6472;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 840px; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
+  header.page-head {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 2rem;
+    margin-bottom: 3rem;
+  }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 0.75rem;
+  }
+  h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 600;
+    font-size: clamp(2rem, 5vw, 2.75rem);
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.01em;
+  }
+  .subtitle { color: var(--muted); font-size: 1.05rem; margin: 0; }
+  h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.5rem;
+    margin: 3rem 0 1rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+  }
+  h2:first-of-type { border-top: none; padding-top: 0; }
+  h3 {
+    font-size: 1.05rem;
+    margin: 2rem 0 0.75rem;
+    color: var(--ink);
+  }
+  p { margin: 0 0 1rem; }
+  blockquote {
+    margin: 1.5rem 0;
+    padding: 1rem 1.25rem;
+    background: var(--paper-dim);
+    border-left: 3px solid var(--brass);
+    font-style: italic;
+    color: var(--ink);
+  }
+  blockquote p:last-child { margin-bottom: 0; }
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    background: var(--paper-dim);
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+  pre {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 1.25rem 1.5rem;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.7;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.25rem 0;
+    font-size: 0.95rem;
+  }
+  caption { caption-side: bottom; }
+  th, td {
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  td:nth-child(2), td.num {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    white-space: nowrap;
+  }
+  .callout {
+    margin: 1.5rem 0;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--red);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--red) 6%, var(--paper));
+  }
+  .callout .label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--red);
+    margin: 0 0 0.5rem;
+    font-weight: 600;
+  }
+  .callout.ok {
+    border-color: var(--teal);
+    background: color-mix(in srgb, var(--teal) 6%, var(--paper));
+  }
+  .callout.ok .label { color: var(--teal); }
+  .open-questions {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .open-questions li {
+    padding: 0.9rem 0 0.9rem 2.25rem;
+    position: relative;
+    border-bottom: 1px solid var(--rule);
+  }
+  .open-questions li:last-child { border-bottom: none; }
+  .open-questions li::before {
+    content: "?";
+    position: absolute;
+    left: 0;
+    top: 0.85rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    border: 1.5px solid var(--brass);
+    color: var(--brass);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .open-questions strong { color: var(--ink); }
+  .files-table td:first-child, .files-table th:first-child {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.85rem;
+    color: var(--teal);
+  }
+  ul.roadmap { list-style: none; margin: 0; padding: 0; }
+  ul.roadmap li {
+    display: flex;
+    gap: 1rem;
+    padding: 0.6rem 0;
+    align-items: baseline;
+  }
+  ul.roadmap .ver {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-weight: 600;
+    color: var(--teal);
+    min-width: 4.5rem;
+  }
+  ol.exec { padding-left: 1.25rem; }
+  ol.exec li { margin-bottom: 0.6rem; }
+  ul.steps { padding-left: 1.25rem; }
+  ul.steps li { margin-bottom: 0.5rem; }
+  a { color: var(--teal); }
+  footer.sources {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  footer.sources ul { padding-left: 1.25rem; }
+  .status-pill {
+    display: inline-block;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--teal);
+    border: 1px solid var(--teal);
+    border-radius: 999px;
+    padding: 0.2rem 0.7rem;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page-head">
+    <p class="eyebrow">Plan · msk_ppal_calc · v0.2</p>
+    <h1>Implementing v0.2: the calculator UI</h1>
+    <p class="subtitle">Proposal for the second roadmap milestone in <code>docs/CONSTITUTION.md</code> —
+    a Next.js calculator wired to the v0.1 fee engine, for Ms. K's own use.</p>
+    <p style="margin-top:1rem"><span class="status-pill">Proposed</span></p>
+  </header>
+
+  <section>
+    <h2>Scope</h2>
+    <p>
+      Per the roadmap, v0.2 is <strong>"Calculator UI: both directions, for Ms. K's own use."</strong>
+      v0.1 already shipped the fee engine — <code>src/lib/fees/{types,money,schedule,engine}.ts</code>,
+      19 passing Vitest tests, no UI, no network call (<code>fxBaseRateToUSD</code> is an injected
+      parameter). v0.2 wires that <strong>existing, untouched</strong> engine to a Next.js UI. It does
+      not touch <code>src/lib/fees/*</code> — the design principle "the fee engine is pure and isolated"
+      holds; the UI is a consumer of it, not a collaborator.
+    </p>
+    <p>Explicitly out of scope, per the roadmap's own sequencing:</p>
+    <ul>
+      <li><strong>v0.3</strong> — the shareable, URL-encoded client-facing breakdown. v0.2 is for
+      Ms. K's own use only; nothing gets shared with a client yet.</li>
+      <li><strong>v0.4</strong> — broader currency and buyer-market coverage. The engine's
+      <code>Currency</code> union stays exactly <code>"USD" | "CAD"</code>; the 22 other currencies
+      now listed in <code>CONSTITUTION.md</code> § "Fixed fee by currency (published)" are not wired
+      up yet — they're unvalidated by observation regardless.</li>
+      <li><strong>v1.0+</strong> — PayPal API reconciliation.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Scaffold &amp; stack</h2>
+    <p>
+      Next.js (App Router) + TypeScript on Vercel, Tailwind + shadcn/ui — all already decided in
+      <code>CONSTITUTION.md</code> § "Tech stack," not re-litigated here.
+      <code>src/lib/fees/</code> moves into the new tree unchanged; the existing
+      <code>pnpm test</code> / <code>pnpm typecheck</code> scripts keep working exactly as they do
+      today.
+    </p>
+    <div class="callout">
+      <p class="label">Implementation-time, not fixed here</p>
+      <p>
+        Exact Next.js / Tailwind / shadcn scaffold commands and config are verified via context7 at
+        implementation time, per <code>CLAUDE.md</code> § "Tool usage" — these drift across versions
+        and shouldn't be hardcoded into a plan document.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>FX integration — <code>src/lib/fx/frankfurter.ts</code></h2>
+    <p>
+      An isolated fetch module, imported by the UI only — never by <code>engine.ts</code>. Fetches
+      the base USD→CAD market rate from Frankfurter, plus its own "as of" date.
+    </p>
+    <div class="callout ok">
+      <p class="label">Decision</p>
+      <p>
+        Don't extend <code>Breakdown</code> to carry the FX rate's date — thread it through UI state
+        separately instead, so the pure engine's return type stays untouched. The UI shows two
+        independent captions: "fee schedule as of <code>SCHEDULE_EFFECTIVE_FROM</code>" and "FX rate
+        as of <code>&lt;Frankfurter's date&gt;</code>," matching the "every number is dated and
+        sourced" design principle without an engine schema change.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Calculator UI — <code>src/app/page.tsx</code></h2>
+    <p>
+      A single page with a mode toggle between the engine's two directions:
+    </p>
+    <ul>
+      <li><strong>Quote</strong> ("what do I invoice to net my target") — <strong>default/first</strong>,
+      matching the mission's job ordering (job 1: help Ms. K quote correctly; job 2: make the
+      deduction visible).</li>
+      <li><strong>Settle</strong> ("what will I actually receive") — second.</li>
+    </ul>
+    <p>Inputs:</p>
+    <ul>
+      <li><strong>Amount</strong></li>
+      <li><strong>Buyer market</strong> — UAE / EEA &amp; UK / all other markets, default "all other
+      markets" (Ms. K's practical case, per "Why Ms. K keeps coming up short")</li>
+      <li><strong>Payment currency</strong> — USD / CAD, default USD, matching the engine's current
+      <code>Currency</code> union exactly</li>
+    </ul>
+    <div class="callout ok">
+      <p class="label">Decision — no trailing-volume input</p>
+      <p>
+        <code>CLAUDE.md</code>'s domain-model notes say directly: "Don't build UI or logic that
+        assumes she might reach those [higher-volume] tiers without this being revisited." Merchant-tier
+        ineligibility is resolved (confirmed with the user), so <code>monthlyVolumeUSDCents</code> is
+        hardcoded to <code>0</code> internally — there is no monthly-volume field in the UI at all.
+      </p>
+    </div>
+    <p>
+      Output: the vertical deduction-ledger design already recorded in <code>docs/plan.html</code>
+      § "Design direction" — navy/paper/oxide-red/teal/brass tokens, Fraunces for the display figure,
+      IBM Plex Sans for body, IBM Plex Mono for every number. Each fee line item's
+      <code>confidence</code> (<code>observed</code> / <code>estimated</code> / <code>unvalidated</code>)
+      is surfaced as a visible badge, not just computed — per "estimates are labeled as estimates."
+    </p>
+    <div class="callout">
+      <p class="label">Implementation-time, not fixed here</p>
+      <p>
+        Final visual/UX execution (exact component layout, spacing, shadcn primitives chosen) must
+        automatically invoke <code>/frontend-design:frontend-design</code>, per <code>CLAUDE.md</code>
+        § "Tool usage." This plan fixes the content and data requirements — what must be shown and why
+        — not final pixel decisions.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Files to create</h2>
+    <table class="files-table">
+      <thead><tr><th>Path</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>next.config.ts, tailwind.config.ts, postcss.config.js</td><td>Framework config</td></tr>
+        <tr><td>src/app/layout.tsx</td><td>Root layout, font loading (Fraunces / IBM Plex)</td></tr>
+        <tr><td>src/app/page.tsx</td><td>The calculator — mode toggle + form + ledger output</td></tr>
+        <tr><td>src/app/globals.css</td><td>Tailwind base + design tokens as CSS vars, reused from <code>docs/plan.html</code></td></tr>
+        <tr><td>src/components/fee-breakdown.tsx</td><td>Renders a <code>Breakdown</code> as the ledger</td></tr>
+        <tr><td>src/components/mode-toggle.tsx, src/components/calculator-form.tsx</td><td>Form + toggle (exact shadcn primitives chosen at implementation time)</td></tr>
+        <tr><td>src/lib/fx/frankfurter.ts</td><td>Isolated FX fetch</td></tr>
+        <tr><td>package.json</td><td>Add <code>next</code>, <code>react</code>, <code>react-dom</code>, <code>tailwindcss</code>, shadcn deps</td></tr>
+      </tbody>
+    </table>
+    <p><code>src/lib/fees/*</code> unchanged — reused as-is.</p>
+  </section>
+
+  <section>
+    <h2>Deployment</h2>
+    <p>
+      <code>CONSTITUTION.md</code>'s tech-stack table already decided Vercel hosting ("zero-config
+      deploy, free tier is sufficient"), and the mission frames Ms. K as non-technical — the README's
+      originating request opens with "I'm not the best at this." A locally-run dev server doesn't
+      satisfy "for Ms. K's own use." This plan proposes v0.2 includes an actual Vercel preview
+      deployment, using the <code>vercel</code> skills already available in this environment, as part
+      of verification — not just <code>pnpm dev</code>.
+    </p>
+  </section>
+
+  <section>
+    <h2>Verification</h2>
+    <ul class="steps">
+      <li><code>pnpm test</code> / <code>pnpm typecheck</code> still green, unchanged (the engine
+      isn't touched by this work)</li>
+      <li><code>pnpm dev</code>, exercise both directions manually; confirm the CAD path triggers the
+      Frankfurter fetch and renders an <code>estimated</code>-flagged FX line item</li>
+      <li>Visual check via the <code>claude-for-safari</code> skill (per <code>CLAUDE.md</code>'s
+      documented convention in this repo) once there's a running page</li>
+      <li>Vercel preview deploy reachable and matches local behavior</li>
+    </ul>
+  </section>
+
+  <footer class="sources">
+    <strong>Sources</strong>
+    <ul>
+      <li><a href="CONSTITUTION.md">docs/CONSTITUTION.md</a> — roadmap, tech stack, design principles, domain model</li>
+      <li><a href="plan.html">docs/plan.html</a> — original project plan; design direction (ledger layout, tokens, typography) reused verbatim here</li>
+      <li><a href="plan-v0.1.html">docs/plan-v0.1.html</a> — the v0.1 engine this UI wires up</li>
+      <li><code>src/lib/fees/{types,money,schedule,engine}.ts</code> — the implemented, tested engine this plan builds on without modifying</li>
+    </ul>
+  </footer>
+
+</div>
+</body>
+</html>
