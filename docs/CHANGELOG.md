@@ -7,6 +7,55 @@ the substantive changes.
 
 ## Unreleased
 
+- Added `CLAUDE.md` § "Vercel account": always use the `krishkshir`
+  account (team `shri-kant`) for Vercel actions, matching the existing
+  "GitHub account" section. Found while deploying v0.2 — the `vercel`
+  CLI and MCP plugin were both authenticated as a different account,
+  and unlike `gh` there was no second session already stored locally,
+  so the user had to run `vercel login` interactively before the
+  deploy could proceed.
+- Implemented v0.2: the calculator UI, per `docs/plan-v0.2.html`. Next.js
+  (App Router) + TypeScript + Tailwind v4 + shadcn/ui, wired to the
+  unmodified v0.1 engine (`src/lib/fees/*` untouched).
+  - `src/app/page.tsx` — single page, a Quote/Settle mode toggle (Quote
+    first, matching the mission's stated job ordering), inputs for
+    amount, buyer market, and payment currency (USD/CAD only, matching
+    the engine's current `Currency` union). No trailing-monthly-volume
+    input — `monthlyVolumeUSDCents` is hardcoded to 0, directly per
+    `CLAUDE.md`'s warning not to build UI around merchant-tier rates
+    Ms. K doesn't qualify for.
+  - `src/components/fee-breakdown.tsx` — the vertical deduction ledger
+    from `docs/plan.html`'s design direction. Rendered as two linked
+    phases when cross-currency (fee deduction in payCurrency, a
+    currency-switch divider, then the FX spread deduction in USD),
+    since the two deductions can't share one proportional bar across
+    currencies. Each line item's `confidence` is a visible badge.
+  - `src/lib/fx/frankfurter.ts` — isolated FX fetch (never imported by
+    `engine.ts`); requesting `base=payCurrency&quotes=USD` returns the
+    rate already in the units `settle`/`quote` expect, no inversion
+    needed. 3 tests (mocked fetch, no live network calls in the suite).
+  - Engine errors are translated to plain language for the UI (e.g. a
+    transaction smaller than the fixed fee) rather than surfacing the
+    developer-facing exception message raw.
+  - Fixed two bugs found during visual verification in Safari: dropping
+    shadcn's `@custom-variant dark` declaration left Tailwind's `dark:`
+    utilities gated on `prefers-color-scheme` instead of disabled,
+    silently reactivating dark-mode styling baked into shadcn's
+    generated components on dark-appearance systems; and a
+    `--color-muted` naming collision between a caption-text token and
+    shadcn's reserved background-role token of the same name made
+    captions render near-invisible (renamed to `--color-caption`).
+  - 22/22 tests green (19 engine + 3 new), typecheck clean, production
+    build succeeds.
+  - Deployed: `vercel link` connected the GitHub repo to a new Vercel
+    project (`shri-kant/msk-ppal-calc`), live at
+    `msk-ppal-calc.vercel.app`. The Vercel CLI/MCP plugin were initially
+    authenticated as the wrong account (mirroring the earlier `gh`
+    situation) — unlike `gh`, no second session was already stored
+    locally, so the user ran `vercel login` interactively. A brand-new
+    project's first deployment lands on `production` even via a plain
+    `vercel deploy`, since there's no preview alias yet to default to —
+    noted in `CLAUDE.md` as expected Vercel behavior, not a mistake.
 - Answered 2 of the 4 open questions in `docs/CONSTITUTION.md` /
   `docs/plan.html`, partially answered a 3rd, and parked the 4th, per the
   user:
