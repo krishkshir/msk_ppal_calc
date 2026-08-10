@@ -4,13 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-No code exists yet. The repo currently contains only planning documents:
-`docs/CONSTITUTION.md`, `docs/plan.html`, `docs/CHANGELOG.md`, and
-`README.md`. There is no `package.json`, no source tree, no tests, and no
-commits on `main`. Before adding build/test/lint instructions here,
-scaffold the project per the tech stack decided in `docs/CONSTITUTION.md`
-and update this file with the real commands — don't invent them ahead of
-the scaffold.
+v0.1 is implemented: the pure fee engine (`settle`/`quote`) under
+`src/lib/fees/`, with an exhaustive Vitest suite (`src/lib/fees/engine.test.ts`)
+covering the T1–T3 regression cases, a refutation guard for the
+previously-wrong fee constants, the designhill tiering-bug check, and the
+README's ground-truth-free Canadian scenario. See `docs/plan-v0.1.html` for
+the implementation plan this was built from.
+
+There is still no Next.js app, no UI, and no FX network call — those are
+v0.2+ per the roadmap in `docs/CONSTITUTION.md`. `src/lib/fx/frankfurter.ts`
+does not exist yet; `fxBaseRateToUSD` is an injected parameter on `settle`/`quote`
+until it does.
+
+Commands (via `pnpm`):
+
+- `pnpm install` — install dependencies
+- `pnpm test` — run the Vitest suite once
+- `pnpm test:watch` — run Vitest in watch mode
+- `pnpm typecheck` — `tsc --noEmit`
 
 ## Before pushing to remote
 
@@ -46,7 +57,7 @@ doc-only and fee-model-correction changes, not just code.
 - **The commercial rate for Ms. K's account is not PayPal's published
   4.40%.** Three real, completed transactions (documented in
   `docs/CONSTITUTION.md` under "Observed transactions (ground truth)") refute
-  that figure; the corrected values are **4.625% + $0.30**, derived from a
+  that figure; the corrected values are **4.625% + $0.31**, derived from a
   three-point regression with an out-of-sample validation check. Any fee
   calculation in this project must use the corrected figures, not the
   originally-published PayPal number. Don't "fix" this back to 4.40% by
@@ -66,11 +77,22 @@ doc-only and fee-model-correction changes, not just code.
   is not `net / (1 - rate)`. The fixed fee and the FX spread apply at
   different points in the chain and must be unwound in the correct order.
   See `docs/CONSTITUTION.md` § "Design principles".
-- Several figures in `docs/CONSTITUTION.md` are explicitly marked unresolved
-  (merchant-tier eligibility, the three untested volume tiers, an
-  unexplained ~0.22pp gap between observed and published rates). Don't
-  silently resolve these while implementing — carry the "estimate" framing
-  into the UI.
+- Merchant-tier eligibility is resolved: Ms. K does **not** qualify for
+  PayPal's volume-discounted rates, so the three higher `OTHER`-market
+  volume tiers in `docs/CONSTITUTION.md` are moot for her — her practical
+  rate is always the $0–$3,000 tier (4.625% + $0.31, observed), regardless
+  of volume. Don't build UI or logic that assumes she might reach those
+  tiers without this being revisited.
+- Two figures in `docs/CONSTITUTION.md` remain explicitly unresolved: the
+  fixed-fee table for currencies other than USD (source of truth confirmed
+  as [PayPal Business fees (AE)](https://www.paypal.com/ae/business/paypal-business-fees),
+  extracted into `docs/CONSTITUTION.md` § "Fixed fee by currency
+  (published)", but not yet validated against a real non-USD transaction —
+  filling `schedule.ts` in from it is v0.4 work), and an unexplained
+  ~0.22pp gap between the observed 4.625% rate and PayPal's published
+  4.40% figure (parked at the user's direction, not being pursued). Don't
+  silently resolve either while implementing — carry the "estimate"
+  framing into the UI.
 
 ## Planned stack (decided, not yet installed)
 
@@ -118,6 +140,17 @@ a CSS issue, etc. Prefer this over asking the user to manually check.
 - For any UI/UX/front-end design work — layout, visual styling, component
   aesthetics, typography — automatically invoke the
   `/frontend-design:frontend-design` skill rather than designing ad hoc.
+
+## GitHub account
+
+Always use the **`krishkshir`** GitHub account (the repo owner/admin) for
+any GitHub action against this repo — `git push`, `gh pr create`, `gh pr
+comment`, etc. The `gh` CLI's default active account may be a different,
+lower-privilege account (e.g. one with only read access), which fails
+non-obviously: `gh pr create` errors with "must be a collaborator" rather
+than an auth error. Before any `gh` write action, check the active account
+with `gh auth status` and, if it isn't `krishkshir`, switch with `gh auth
+switch --user krishkshir` first.
 
 ## Non-goals
 
