@@ -11,8 +11,14 @@ import { loadLedgerStatus } from "./status";
 // Server Component should never rely on that alone — see the Next.js
 // proxy docs' own warning that a matcher change or refactor can silently
 // remove proxy coverage from a route without anyone noticing.
-export default async function LedgerPage() {
+export default async function LedgerPage(props: PageProps<"/ledger">) {
   const user = await requireUser("/ledger");
+  const searchParams = await props.searchParams;
+  // Set by requireAdmin (src/lib/auth/profile.ts) when a signed-in non-admin
+  // POSTs an admin-only action (exclude/revert) — a visible banner here
+  // rather than a silent redirect indistinguishable from the action having
+  // simply had no effect.
+  const notAdmin = searchParams.error === "not_admin";
 
   const [{ transactions, status }, history] = await Promise.all([
     loadLedgerStatus(),
@@ -23,9 +29,13 @@ export default async function LedgerPage() {
     <main className="mx-auto max-w-3xl px-6 py-16">
       <div className="flex items-center justify-between">
         <div>
-          <p className="font-mono text-xs tracking-[0.12em] text-caption uppercase">
-            msk_ppal_calc · ledger
-          </p>
+          {/* Mirrors the "Ledger →" link on the calculator homepage (src/components/calculator.tsx) — this is the only way back, since /ledger has no other nav. */}
+          <Link
+            href="/"
+            className="font-mono text-xs tracking-[0.12em] text-teal uppercase underline underline-offset-4 hover:text-teal/80"
+          >
+            ← msk_ppal_calc
+          </Link>
           <h1 className="mt-2 font-display text-2xl text-ink">
             Signed in as {user.email ?? user.id} ({user.role})
           </h1>
@@ -39,6 +49,12 @@ export default async function LedgerPage() {
           </button>
         </form>
       </div>
+
+      {notAdmin ? (
+        <p className="mt-6 rounded-md border border-oxide/60 bg-oxide/10 px-3 py-2 text-sm text-oxide">
+          That action needs an admin account.
+        </p>
+      ) : null}
 
       <p className="mt-6 text-sm">
         <Link href="/ledger/new" className="text-teal underline">

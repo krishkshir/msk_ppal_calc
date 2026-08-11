@@ -124,6 +124,17 @@ Commands (via `pnpm`):
 - `pnpm test:watch` — run Vitest in watch mode
 - `pnpm typecheck` — `tsc --noEmit`
 
+If `pnpm dev` fails with `Module not found: Can't resolve
+'@vercel/turbopack-next/internal/font/google/font'` (traced to
+`src/app/layout.tsx`'s `next/font/google` imports), this is Turbopack's
+persistent dev cache, not a code or repo problem — confirmed by `pnpm
+build` succeeding fine in the same state. Google Fonts occasionally
+rotates the file hash for a given font/weight/subset; `next dev`'s
+Turbopack cache doesn't self-heal from a rotated-out URL, so it keeps
+retrying a now-404 link every request. Fix: `rm -rf .next` and restart
+`pnpm dev` — this only clears build artifacts (gitignored, nothing to
+push), forcing a fresh live lookup.
+
 ## Before pushing to remote
 
 Update the affected docs in the same change — `CLAUDE.md`, `README.md`, and
@@ -332,10 +343,55 @@ care as a production deploy. Apply new migrations with `psql
 `.env.local` first) — the Supabase CLI itself isn't linked to this
 project (`supabase link` needs an interactive `supabase login`), so
 `psql` against the pooled-off connection string is the working path.
-Promoting an account to `role='admin'` in `public.profiles` is a
-one-time manual SQL step by the maintainer, deliberately not a UI
-feature — see `supabase/migrations/20260810160000_v0_5_ledger.sql`'s
-comment on `handle_new_user()`.
+`/ledger` is locked to a fixed allow-list, `public.allowed_accounts`
+(`supabase/migrations/20260811090000_allowed_accounts.sql`) —
+currently `shrikantkshirsagar29@gmail.com` (admin) and
+`karendlima3@gmail.com` / `krish.kshir@gmail.com` (user). `role` is
+derived **live** from `allowed_accounts` on every request, by
+`my_ledger_role()` (`supabase/migrations/20260811120000_derive_ledger_access.sql`)
+— not cached anywhere, not even a `profiles` table (that table was
+dropped by this migration; a code review on the first version of this fix
+found it was written once at signup and never invalidated, so removing or
+promoting an existing account silently didn't work). Adding or removing a
+person is `insert`/`delete` on `allowed_accounts` and takes effect
+immediately, for someone who has already signed in as much as for a
+first-time signup. `handle_new_user()` still separately refuses signup
+(aborting the `auth.users` insert, no account created, no email sent) for
+anyone not on the list — including every path into `auth.users`, so the
+Supabase Dashboard's own "Add/Invite user" fails until the person is
+added to `allowed_accounts` first. See
+`docs/plan-ledger-access-lockdown.html` for the full design, including why
+the allow-list itself is never referenced from an RLS policy directly (a
+zero-policy table referenced from another table's policy subquery
+evaluates to "deny everyone", silently) — it's read only inside
+`SECURITY DEFINER` helpers.
+
+**Magic-link emails silently redirect to `http://localhost:3000` from any
+deployed environment (preview or production) unless the Supabase
+Dashboard's Auth → URL Configuration allow-list is kept in sync with every
+domain the app is reachable at.** `src/app/login/actions.ts`'s
+`requestMagicLink` computes `emailRedirectTo` correctly from the request's
+`origin` header (Next.js Server Actions already enforce their own
+Origin-header CSRF check to run at all, so this is reliable) — but
+`signInWithOtp`'s `redirectTo` is validated against that allow-list
+server-side by GoTrue, and a value that doesn't match is **silently
+replaced with the Site URL**, not rejected with an error. The generated
+`/auth/v1/verify` link's `redirect_to` param is the tell: a bare origin
+with no `/auth/confirm` path (rather than the app's actual constructed
+URL) means the allow-list rejected it. This isn't version-controlled
+(`supabase/config.toml` doesn't exist; the CLI isn't linked — same
+un-tracked-dashboard-settings situation as everywhere else in this
+section), so it's a one-time manual step per environment domain, in
+**Authentication → URL Configuration** on the `supabase-beige-harbor`
+project: add `http://localhost:3000/**` (local dev),
+`https://msk-ppal-calc.vercel.app/**` (production), and
+`https://msk-ppal-calc-*-shri-kant.vercel.app/**` (every preview
+deployment — Vercel's actual pattern is
+`msk-ppal-calc-<hash>-shri-kant.vercel.app`, confirmed via `vercel ls`).
+Site URL itself is worth changing from `http://localhost:3000` to the
+production URL too, since it's also the fallback for every other auth
+email (password reset, etc.), not just magic-link redirects that miss the
+allow-list.
 
 ## Non-goals
 

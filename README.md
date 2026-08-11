@@ -18,9 +18,14 @@ As of v0.5, Ms. K can record real PayPal transactions herself at
 `/ledger`, and the app re-derives the fee model from them instead of
 that being a manual, code-level edit.
 
-- **Sign in at `/ledger`** — enter your email and a sign-in link is sent
-  to it; no password. Click the link on the same device to complete
-  sign-in. New accounts default to the `user` role.
+- **`/ledger` is locked to a fixed allow-list** of email addresses — enter
+  your email and, if it's on the list, a sign-in link is sent to it; no
+  password. Click the link on the same device to complete sign-in. Any
+  other address gets the same "check your email" screen with no email
+  actually sent, so a mistyped or unrecognized address won't look like an
+  error. Role (`admin`/`user`) comes from the allow-list itself, not a
+  manual step — see `CLAUDE.md` § "Supabase" for how to add or remove a
+  person.
 - **Record a transaction** via "Record a transaction" on the ledger page
   — what the client paid, what actually landed in the USD balance, the
   buyer's country, and (if PayPal showed them to you) its own fee line
@@ -34,9 +39,6 @@ that being a manual, code-level edit.
 - **Admin accounts** additionally see full feasibility diagnostics, can
   exclude or correct a transaction (kept, not deleted, so the record
   stays auditable), and can revert to any previously accepted model.
-  Promoting an account to admin is a one-time manual step in the
-  Supabase dashboard/SQL editor — see `CLAUDE.md` § "Supabase" — not
-  something done through the app.
 
 The public calculator (`/`) and the shareable breakdown (`/breakdown`)
 need no sign-in and are unaffected either way. See `docs/plan-v0.5.html`

@@ -28,6 +28,13 @@ export async function requestMagicLink(formData: FormData) {
   if (email) {
     const supabase = await createClient();
     const origin = (await headers()).get("origin");
+    // This URL is only honored if it matches the Supabase project's Auth
+    // → URL Configuration → Redirect URLs allow-list (not version
+    // controlled — see CLAUDE.md § "Supabase"). If it doesn't, GoTrue
+    // silently substitutes the configured Site URL instead of erroring,
+    // which is why a mismatch shows up as a magic link that redirects
+    // somewhere unrelated (e.g. localhost from a deployed environment)
+    // rather than as a visible failure here.
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
