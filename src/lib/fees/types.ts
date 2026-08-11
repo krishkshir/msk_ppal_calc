@@ -1,7 +1,7 @@
-export type { Currency, Confidence } from "./currencies";
+export type { Currency, Confidence, DisplayConfidence } from "./currencies";
 export type { BuyerMarket } from "./markets";
 
-import type { Confidence, Currency } from "./currencies";
+import type { Currency, DisplayConfidence } from "./currencies";
 
 export interface Money {
   currency: Currency;
@@ -12,7 +12,7 @@ export interface FeeLineItem {
   label: string;
   minorUnits: number;
   currency: Currency;
-  confidence: Confidence;
+  confidence: DisplayConfidence;
   note?: string;
 }
 

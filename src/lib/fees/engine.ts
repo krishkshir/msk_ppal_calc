@@ -7,7 +7,7 @@ import {
   SCHEDULE_EFFECTIVE_FROM,
   selectTier,
 } from "./schedule";
-import type { BuyerMarket, Breakdown, Confidence, Currency, FeeLineItem, Money } from "./types";
+import type { BuyerMarket, Breakdown, Currency, DisplayConfidence, FeeLineItem, Money } from "./types";
 
 interface CommonInput {
   payCurrency: Currency;
@@ -67,16 +67,22 @@ export interface QuoteResult {
  * fixed fee directly (src/lib/fees/solve.ts's solveCurrencyFixedFee), in
  * which case model.confidence already reflects that currency's real
  * evidence and must not be silently downgraded a second time.
+ *
+ * Anything stronger than "unvalidated" downgrades — including "manual"
+ * (v0.6): a rate override with no matching non-USD fixed-fee override
+ * still mixes in that static, unvalidated fixed fee, so the combined
+ * figure can't keep the "Overridden" label as if all of it were
+ * hand-corrected.
  */
 function confidenceFor(
-  tierConfidence: Confidence,
+  tierConfidence: DisplayConfidence,
   payCurrency: Currency,
   fixedFeeFromModel: boolean,
-): Confidence {
+): DisplayConfidence {
   if (payCurrency === ACCOUNT_CURRENCY || fixedFeeFromModel) {
     return tierConfidence;
   }
-  return tierConfidence === "observed" ? "estimated" : tierConfidence;
+  return tierConfidence === "unvalidated" ? "unvalidated" : "estimated";
 }
 
 /**
@@ -127,9 +133,12 @@ export function settle(input: SettleInput): Breakdown {
     note: fixedFeeIsUnvalidated
       ? `${tier.note ?? ""} The ${payCurrency} fixed fee is PayPal's published figure, ` +
         `unvalidated by observation (CONSTITUTION.md open question #1).`
-      : usingLedgerRateOrFee
-        ? `Rate and fixed fee from the accepted ledger model (dated ${asOf}), not the static schedule.`
-        : tier.note,
+      : rateConfidence === "manual"
+        ? `Rate and/or fixed fee include a manual override (effective ${asOf}), taking precedence ` +
+          `over the ledger model and the static schedule.`
+        : usingLedgerRateOrFee
+          ? `Rate and fixed fee from the accepted ledger model (dated ${asOf}), not the static schedule.`
+          : tier.note,
   };
 
   if (payCurrency === ACCOUNT_CURRENCY) {
@@ -152,16 +161,20 @@ export function settle(input: SettleInput): Breakdown {
   const fxRate = fxRateInMinorUnits(fxBaseRateToUSD, payCurrency);
   const atBaseRateMinorUnits = roundHalfUp(netInPayCurrencyMinorUnits * fxRate);
   const receivedMinorUnits = roundHalfUp(netInPayCurrencyMinorUnits * fxRate * (1 - spreadRate));
+  const spreadConfidence = model?.fxSpreadConfidence ?? "estimated";
   const fxConversion: FeeLineItem = {
     label: `Currency conversion spread (${(spreadRate * 100).toFixed(1)}% above base rate)`,
     minorUnits: atBaseRateMinorUnits - receivedMinorUnits,
     currency: ACCOUNT_CURRENCY,
-    confidence: model?.fxSpreadConfidence ?? "estimated",
-    note: model?.fxSpreadConfidence === "observed"
-      ? `Currency conversion spread from the accepted ledger model (dated ${asOf}).`
-      : "No observed transaction involves a currency conversion — this line " +
-        "item is PayPal's published 4.0% MEA-region spread applied as-is, " +
-        "not validated against a real payment.",
+    confidence: spreadConfidence,
+    note:
+      spreadConfidence === "manual"
+        ? `Currency conversion spread manually overridden (effective ${asOf}).`
+        : spreadConfidence === "observed"
+          ? `Currency conversion spread from the accepted ledger model (dated ${asOf}).`
+          : "No observed transaction involves a currency conversion — this line " +
+            "item is PayPal's published 4.0% MEA-region spread applied as-is, " +
+            "not validated against a real payment.",
   };
 
   return {

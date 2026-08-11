@@ -115,6 +115,48 @@ renamed `middleware.ts` to `proxy.ts`) gates `/ledger*` only — `/` and
 login. See `docs/plan-v0.5.html` for the implementation plan this was
 built from, including the full feasible-fixed-fee table.
 
+v0.6 is implemented: a rates-and-fees table on `/ledger`
+(`src/components/ledger/rates-table.tsx`, built by
+`src/lib/fees/rate-rows.ts`'s pure `buildRateRows`) rendering every
+commercial-rate tier, per-currency fixed fee, and the FX spread with a
+named source and effective date. `src/lib/fees/sources.ts` (new) is a
+small `FeeSource` registry separating a figure's *origin* (e.g. "PayPal
+— Business fees (AE)" vs. "Computed by this app from your ledger" vs.
+"Manual override") from its existing, orthogonal `Confidence` rating;
+`ScheduleEntry`/`CurrencySpec` now carry `sourceId` (not `sourceUrl` —
+the source itself, including its URL, is looked up from the registry)
+plus the `effectiveFrom` both already had. Also implemented: a manual
+override, settable by either `user` or `admin`
+(`src/app/ledger/actions.ts`'s `setOverrideAction`/`clearOverrideAction`,
+backed by the append-only `fee_overrides` table and
+`src/lib/db/fee-overrides.ts`), on any rate, per-currency fixed fee, or
+the FX spread. An override takes precedence over both the
+ledger-derived model and the static schedule
+(`src/lib/fees/model.ts`'s `resolveFeeModel`), carries a person-supplied
+effective-from date plus an app-stamped set-by/set-on, and — when it
+masks what the ledger's solver has confirmed or is proposing — shows a
+visible masking warning on the status panel
+(`src/components/ledger/status-panel.tsx`) rather than a silent change.
+`Confidence` (`src/lib/fees/currencies.ts`) stays a three-value type
+backed by a DB check constraint; a fourth, UI-only value — `"manual"` —
+lives on a separate `DisplayConfidence = Confidence | "manual"` type so
+it's never persisted into that constrained column.
+
+An override can only ever affect a commercial rate on the tier
+`resolveFeeModel` actually selects for quoting — `selectTier(buyerMarket,
+0)`, since Ms. K's practical tier never varies by volume (see "Domain
+model" below). The three higher `OTHER`-market volume tiers are shown in
+the table for visibility but their Override control is hidden
+(`rate-rows.ts`'s `isQuotedTier`, from `schedule.ts`) and the server
+action rejects an override attempt on them even via a raw POST — setting
+one would otherwise be silently accepted and displayed as in force while
+never reaching a single quote. See `docs/plan-v0.6.html` for the full
+design, plus its "Corrections after implementation" section for this and
+a handful of other fixes a follow-up code review found (blank-value
+handling, a floating-point-noise bug in the override form's prefilled
+value, and several cases where the UI's provenance labeling didn't
+account for the new `"manual"` confidence value).
+
 Commands (via `pnpm`):
 
 - `pnpm install` — install dependencies
@@ -365,6 +407,17 @@ the allow-list itself is never referenced from an RLS policy directly (a
 zero-policy table referenced from another table's policy subquery
 evaluates to "deny everyone", silently) — it's read only inside
 `SECURITY DEFINER` helpers.
+
+v0.6 (`supabase/migrations/20260812000000_fee_overrides.sql`, applied)
+adds an append-only `fee_overrides` table for manually-corrected rates
+and fees. Its SELECT policy is public (anon-readable, matching
+`fee_models`, since
+the public calculator needs to read an active override with no login)
+but **column-restricted**: `set_by_email` is only granted to
+`authenticated`, not `anon`, via a Postgres column-level grant
+underneath the row-level policy — RLS alone can't hide one column of an
+otherwise-readable row, so a ledger member's email must not leak through
+the public calculator's read path.
 
 **Magic-link emails silently redirect to `http://localhost:3000` from any
 deployed environment (preview or production) unless the Supabase

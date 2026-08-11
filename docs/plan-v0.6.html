@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan v0.6 — msk_ppal_calc</title>
+<style>
+  :root {
+    --ink: #12203A;
+    --paper: #FBFAF7;
+    --paper-dim: #F3F1EA;
+    --rule: #DAD5C7;
+    --red: #A6432B;
+    --teal: #1F6F5C;
+    --brass: #C9A227;
+    --muted: #5B6472;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 840px; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
+  header.page-head {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 2rem;
+    margin-bottom: 3rem;
+  }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 0.75rem;
+  }
+  h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 600;
+    font-size: clamp(2rem, 5vw, 2.75rem);
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.01em;
+  }
+  .subtitle { color: var(--muted); font-size: 1.05rem; margin: 0; }
+  h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.5rem;
+    margin: 3rem 0 1rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+  }
+  h2:first-of-type { border-top: none; padding-top: 0; }
+  h3 {
+    font-size: 1.05rem;
+    margin: 2rem 0 0.75rem;
+    color: var(--ink);
+  }
+  p { margin: 0 0 1rem; }
+  blockquote {
+    margin: 1.5rem 0;
+    padding: 1rem 1.25rem;
+    background: var(--paper-dim);
+    border-left: 3px solid var(--brass);
+    font-style: italic;
+    color: var(--ink);
+  }
+  blockquote p:last-child { margin-bottom: 0; }
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    background: var(--paper-dim);
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+  pre {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 1.25rem 1.5rem;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.7;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.25rem 0;
+    font-size: 0.95rem;
+  }
+  caption { caption-side: bottom; }
+  th, td {
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  td:nth-child(2), td.num {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    white-space: nowrap;
+  }
+  .callout {
+    margin: 1.5rem 0;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--red);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--red) 6%, var(--paper));
+  }
+  .callout .label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--red);
+    margin: 0 0 0.5rem;
+    font-weight: 600;
+  }
+  .callout.ok {
+    border-color: var(--teal);
+    background: color-mix(in srgb, var(--teal) 6%, var(--paper));
+  }
+  .callout.ok .label { color: var(--teal); }
+  .files-table td:first-child, .files-table th:first-child {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.85rem;
+    color: var(--teal);
+  }
+  ol.exec { padding-left: 1.25rem; }
+  ol.exec li { margin-bottom: 0.6rem; }
+  ul.steps { padding-left: 1.25rem; }
+  ul.steps li { margin-bottom: 0.5rem; }
+  a { color: var(--teal); }
+  footer.sources {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  footer.sources ul { padding-left: 1.25rem; }
+  .status-pill {
+    display: inline-block;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--teal);
+    border: 1px solid var(--teal);
+    border-radius: 999px;
+    padding: 0.2rem 0.7rem;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page-head">
+    <p class="eyebrow">Plan · msk_ppal_calc · v0.6</p>
+    <h1>Implementing v0.6: a rates &amp; fees table on the ledger, with named provenance and manual overrides</h1>
+    <p class="subtitle">Proposal to show every rate and fee the engine actually uses — one row per buyer-market
+    tier, per currency's fixed fee, and the FX spread — labeled with exactly where each figure came from
+    (PayPal's own page, a third-party tool, or computed by this app) and the date it took effect, to both
+    <code>user</code> and <code>admin</code> accounts on <code>/ledger</code>. Both accounts can also type in a
+    corrected figure as a dated manual override, which takes effect immediately on the public calculator and
+    every new <code>/breakdown</code> link.</p>
+    <p style="margin-top:1rem"><span class="status-pill">Proposed</span></p>
+  </header>
+
+  <section>
+    <h2>Scope</h2>
+    <p>
+      The figures the engine trusts today are already dated and already sourced —
+      <code>ScheduleEntry</code> (<code>src/lib/fees/schedule.ts</code>) and <code>CurrencySpec</code>
+      (<code>src/lib/fees/currencies.ts</code>) both carry a <code>sourceUrl</code>, an
+      <code>effectiveFrom</code>, a <code>confidence</code>, and a <code>note</code> on every row. None of it
+      reaches the screen. <code>sourceUrl</code> and <code>effectiveFrom</code> are read by nothing in the app;
+      <code>note</code> only ever surfaces as a <code>title=</code> tooltip
+      (<code>src/components/fee-breakdown.tsx</code>'s <code>ConfidenceBadge</code>). <code>/ledger</code>
+      itself goes further: <code>loadLedgerStatus()</code> (<code>src/app/ledger/status.ts</code>) already
+      returns the active ledger-derived model, and <code>src/app/ledger/page.tsx</code> discards it without
+      rendering a single field.
+    </p>
+    <p>
+      Two things are missing beyond rendering what already exists:
+    </p>
+    <ul>
+      <li><strong>Origin is not the same axis as confidence.</strong> <code>Confidence</code>
+      (<code>observed</code> / <code>estimated</code> / <code>unvalidated</code>) says how much to trust a
+      number. It says nothing about where the number came from — PayPal's own published page, a third-party
+      tool, or something this app computed. Today that's only recoverable by string-matching a
+      <code>sourceUrl</code> against a hardcoded constant no UI reads.</li>
+      <li><strong>No figure can be corrected without a code deploy.</strong> Every non-USD fixed fee is
+      <code>unvalidated</code>: PayPal's published table (<code>currencies.ts</code>) or a
+      designhill-sourced volume tier (<code>schedule.ts</code>) can go stale the moment PayPal changes a
+      published number, and today fixing it means a pull request. Ms. K should be able to type the right
+      figure in directly.</li>
+    </ul>
+    <p>Decisions confirmed with the user before drafting this plan:</p>
+    <ul>
+      <li><strong>An override changes real calculations, not just the ledger display.</strong> Precedence,
+      highest wins: a manual override beats the accepted ledger model (<code>fee_models</code>), which beats
+      the static table (<code>schedule.ts</code> / <code>currencies.ts</code>). The public calculator at
+      <code>/</code> and every newly generated <code>/breakdown</code> link pick up an override immediately.</li>
+      <li><strong>An override carries two dates.</strong> A person-supplied <em>effective from</em> — the date
+      the figure actually took effect, e.g. the date PayPal changed a published number — plus an app-stamped
+      <em>set by / set on</em>, so a figure's real-world date and its audit date are both visible and never
+      conflated.</li>
+      <li><strong>On conflict with the ledger's own solver, the override wins, with a visible warning.</strong>
+      If Ms. K's recorded transactions later determine a different commercial rate or fixed fee than a figure
+      someone typed in, the override stays in force — nothing changes what a client is quoted silently — and
+      the status panel says plainly that a manual override is masking what the transactions determine, with a
+      one-click way to clear it. Accepting a solver proposal never wipes an unrelated override out from under
+      whoever set it.</li>
+      <li><strong>Both roles get the same override capability.</strong> Unlike excluding a transaction or
+      reverting a model (admin-only, per <code>docs/plan-v0.5.html</code> "Accounts and access"), correcting a
+      published rate or fee is not a data-quality judgment call about the ledger's own evidence — it's
+      Ms. K noticing PayPal changed a number on its website. <code>user</code> and <code>admin</code> are equal
+      here.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Origin, as data — <code>src/lib/fees/sources.ts</code> (new, pure)</h2>
+    <p>
+      A small named registry, so "where did this number come from" is a lookup, not a URL pattern-match:
+    </p>
+    <pre>export type SourceKind = "published" | "third-party" | "derived" | "manual";
+export interface FeeSource { kind: SourceKind; label: string; url?: string }
+
+export const FEE_SOURCES = {
+  paypalMerchantFees:   { kind: "published",   label: "PayPal — UAE merchant fees",
+                           url: "https://www.paypal.com/ae/webapps/mpp/merchant-fees" },
+  paypalBusinessFees:   { kind: "published",   label: "PayPal — Business fees (AE)",
+                           url: "https://www.paypal.com/ae/business/paypal-business-fees" },
+  designhillCalculator: { kind: "third-party", label: "designhill.com PayPal fee calculator",
+                           url: "https://www.designhill.com/tools/paypal-fee-calculator" },
+  observedTransactions: { kind: "derived",     label: "Computed by this app from T1–T3",
+                           url: "../docs/CONSTITUTION.md#observed-transactions-ground-truth" },
+  ledgerModel:          { kind: "derived",     label: "Computed by this app from your ledger" },
+  manualOverride:       { kind: "manual",      label: "Manual override" },
+} as const satisfies Record<string, FeeSource>;
+
+export type FeeSourceId = keyof typeof FEE_SOURCES;
+export function feeSource(id: FeeSourceId): FeeSource;</pre>
+    <p>
+      <code>ScheduleEntry.sourceUrl</code> and <code>CurrencySpec.sourceUrl</code> are replaced with
+      <code>sourceId: FeeSourceId</code>, and the five module-private URL constants currently duplicated across
+      <code>schedule.ts</code> and <code>currencies.ts</code> move into this one file. Mechanical across the 6
+      schedule rows and 23 currency rows, and safe to do — <code>sourceUrl</code> has no readers today, verified
+      by search. Mapping: the UAE and EEA/UK tiers plus <code>FX_SPREAD_RATE</code> →
+      <code>paypalMerchantFees</code>; the three higher <code>OTHER</code> volume tiers →
+      <code>designhillCalculator</code>; the <code>OTHER</code> $0–$3,000 tier and USD's <code>$0.31</code> →
+      <code>observedTransactions</code>; all 22 non-USD fixed fees → <code>paypalBusinessFees</code>.
+      <code>ledgerModel</code> covers any live <code>fee_models</code> row — the seed row's own <code>note</code>
+      already records that it came from T1–T3, so no new column is needed to tell a seeded row from a
+      solver-accepted one apart.
+    </p>
+  </section>
+
+  <section>
+    <h2>Override targets — <code>src/lib/fees/overrides.ts</code> (new, pure)</h2>
+    <p>
+      "Any rate and fee in the displayed table" spans three shapes: a commercial rate for one buyer-market
+      tier, one currency's fixed fee, or the single FX spread. A generic keyed target, not new columns bolted
+      onto <code>fee_models</code>, because <code>fee_models.rate</code> structurally can't express a UAE or
+      EEA/UK rate — <code>resolveFeeModel</code> (<code>src/lib/fees/model.ts:72</code>) applies it to the
+      <code>OTHER</code> market only.
+    </p>
+    <pre>export type OverrideTarget =
+  | { kind: "rate"; buyerMarket: BuyerMarket; minMonthlyVolumeUSDCents: number }
+  | { kind: "fixedFee"; currency: Currency }
+  | { kind: "fxSpread" };
+
+export function targetKey(t: OverrideTarget): string;
+  // "rate:OTHER:0" | "fixedFee:CAD" | "fxSpread"
+export function parseTargetKey(key: string): OverrideTarget | null;
+  // validated against the real SCHEDULE + CURRENCIES tables — never trusts a bare string
+export function validateOverrideValue(t: OverrideTarget, value: number): string | null;
+  // returns an error message, or null if valid
+
+export interface Override {
+  targetKey: string;
+  value: number;              // rate as a fraction; fixed fee/spread in integer minor units
+  effectiveFrom: string;      // YYYY-MM-DD, person-supplied
+  setByEmail: string | null;
+  setAt: string;              // app-stamped
+  note: string | null;
+}
+export type ActiveOverrides = readonly Override[];  // one row per target, newest non-cleared
+export function findOverride(overrides: ActiveOverrides, t: OverrideTarget): Override | undefined;</pre>
+    <p>
+      <code>ActiveOverrides</code> is a plain readonly array, not a <code>Map</code>:
+      <code>src/components/calculator.tsx</code> is a <strong>client</strong> component that receives its
+      model as a prop from the server component at <code>src/app/page.tsx</code>, so this value crosses the
+      RSC serialization boundary and has to stay trivially serializable, the same reasoning
+      <code>ActiveFeeModelRow</code> already follows.
+    </p>
+    <p>
+      Storage units mirror the rest of the fee engine: rates as fractions, fixed fees as integer minor units.
+      The server action converts what a person actually types using
+      <code>currencySpec(currency).minorUnitExponent</code>, so JPY's exponent-0 trap
+      (<code>CLAUDE.md</code> § "Domain model" — a plain minor-unit multiply is off by a power of ten for any
+      currency whose exponent isn't 2) is handled in exactly one place, not re-derived per call site.
+      Validation: rate and spread values in <code>[0, 0.5]</code>; fixed fees an integer in
+      <code>[0, 1_000_000]</code> minor units; <code>effectiveFrom</code> a real calendar date, not in the
+      future — a figure can't already be in force from a date that hasn't happened, and nothing in this design
+      filters by date at read time, only at display and audit time.
+    </p>
+  </section>
+
+  <section>
+    <h2>Schema — <code>supabase/migrations/20260812000000_fee_overrides.sql</code></h2>
+    <p>
+      Append-only, matching <code>fee_models</code>' own philosophy
+      (<code>supabase/migrations/20260810160000_v0_5_ledger.sql</code>): no UPDATE policy and no DELETE
+      policy, so RLS denies both outright at the database, not just by app-layer convention. Clearing an
+      override inserts a tombstone row (<code>cleared = true</code>, <code>value</code> null) rather than
+      deleting history — the same reasoning that makes excluding a transaction, not deleting it, this
+      project's standing rule.
+    </p>
+    <ul class="steps">
+      <li><code>target_key text not null</code> with a format <code>check</code> constraint;
+      <code>value numeric</code>, <code>cleared boolean not null default false</code>, and a table check that
+      exactly one of the two is meaningfully set.</li>
+      <li><code>effective_from date not null</code>, <code>note text</code>,
+      <code>set_at timestamptz not null default now()</code>, <code>set_by uuid references auth.users(id)</code>,
+      <code>set_by_email text</code>.</li>
+      <li><code>set_by</code> / <code>set_by_email</code> are stamped by a <code>SECURITY DEFINER</code>
+      before-insert trigger reading <code>auth.uid()</code>, overwriting whatever the client sent — the same
+      pattern the ledger-access-lockdown work established for deriving identity server-side
+      (<code>supabase/migrations/20260811120000_derive_ledger_access.sql</code>) rather than trusting a
+      form value. No client can spoof who typed a figure, and no <code>with check (set_by = auth.uid())</code>
+      is needed on the insert policy.</li>
+      <li>Index <code>(target_key, set_at desc)</code> — every read wants the newest row per target.</li>
+      <li><strong>SELECT is public but column-restricted.</strong> The calculator at <code>/</code> and
+      <code>/breakdown</code> both need to read overrides with no login, the same reasoning
+      <code>fee_models</code>' deliberately anon-readable SELECT policy already documents. But an override's
+      <code>set_by_email</code> must not become a publicly readable list of ledger members' email addresses.
+      Row-level security alone can't restrict that — it's a column, not a row — so this uses Postgres
+      column-level grants underneath a permissive RLS policy:
+      <pre>revoke select on public.fee_overrides from anon;
+grant select (id, target_key, value, cleared, effective_from, note, set_at)
+  on public.fee_overrides to anon;
+grant select on public.fee_overrides to authenticated;  -- full row, incl. set_by_email</pre></li>
+      <li><strong>INSERT</strong> is authenticated-and-member only:
+      <code>to authenticated with check ( (select public.is_ledger_member()) )</code> — the exact pattern
+      already used for <code>fee_models</code> inserts in
+      <code>supabase/migrations/20260811090000_allowed_accounts.sql:193</code>, deliberately not
+      role-gated: both <code>user</code> and <code>admin</code> are trusted, already-authenticated accounts of
+      a two-person app, and the user's confirmed decision is that both roles can set an override.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Query layer — <code>src/lib/db/fee-overrides.ts</code> (new)</h2>
+    <p>
+      Mirrors <code>src/lib/db/fee-models.ts</code>'s shape and its degrade-gracefully contract exactly:
+    </p>
+    <pre>export const getActiveOverrides = cache(async (): Promise&lt;ActiveOverrides&gt; =&gt; { ... });
+  // newest non-cleared row per target_key; [] on any error or empty table —
+  // same fallback discipline as getActiveFeeModel(), so a Supabase outage
+  // degrades to the ledger model and then the static table, never breaks /
+
+export async function listOverrideHistory(targetKey: string): Promise&lt;Override[]&gt;;
+  // authenticated-only, includes set_by_email
+
+export async function setOverride(input: SetOverrideInput): Promise&lt;{ ok: true } | { ok: false; error: string }&gt;;
+export async function clearOverride(targetKey: string): Promise&lt;{ ok: true } | { ok: false; error: string }&gt;;</pre>
+    <p>
+      <code>getActiveOverrides</code> wraps in React's <code>cache()</code>, the same reason
+      <code>getActiveFeeModel</code> does: <code>src/app/breakdown/page.tsx</code> already calls its model
+      fetch from both <code>generateMetadata</code> and the page body, and this second query needs the same
+      per-request dedup.
+    </p>
+  </section>
+
+  <section>
+    <h2>Precedence — <code>src/lib/fees/model.ts</code> and <code>engine.ts</code></h2>
+    <p>
+      <code>resolveFeeModel(row, buyerMarket, payCurrency)</code> gains a fourth, defaulted argument:
+    </p>
+    <pre>export function resolveFeeModel(
+  row: ActiveFeeModelRow | null,
+  buyerMarket: BuyerMarket,
+  payCurrency: Currency,
+  overrides: ActiveOverrides = [],
+): FeeModel | undefined</pre>
+    <p>
+      Overrides are applied <strong>after</strong> the ledger row is resolved, so they win — a rate override
+      replaces <code>row.rate</code>-derived value, a fixed-fee override replaces
+      <code>row.fixedFeeMinorUnits</code> / <code>row.perCurrencyFixedFees[currency]</code>, an FX-spread
+      override replaces <code>row.fxSpreadRate</code>. The rate target's key resolves through
+      <code>selectTier(buyerMarket, 0)</code> — the same hardcoded-zero trailing volume every existing call
+      site already uses, per that function's own doc comment, since Ms. K's practical tier never varies by
+      volume (<code>CLAUDE.md</code> § "Domain model"). Critically, an override on a UAE or EEA/UK rate
+      <strong>does</strong> apply — unlike <code>fee_models.rate</code>, which <code>resolveFeeModel</code>
+      only ever applies to the <code>OTHER</code> market (line 72, unchanged), a manual override is scoped to
+      whichever tier it names, so this is also how UAE/EEA_UK rates become correctable at all, something v0.5
+      explicitly left unsolvable.
+    </p>
+    <p>
+      When an override contributes to a field: <code>confidence</code> for that field becomes the new
+      <code>"manual"</code> value (added below), and <code>asOf</code> becomes the later of the override's
+      <code>effectiveFrom</code> and whatever the ledger model's <code>asOf</code> already was.
+    </p>
+    <div class="callout ok">
+      <p class="label">Decision — add a fourth Confidence value, don't repurpose an existing one</p>
+      <p>
+        <code>Confidence</code> (<code>src/lib/fees/currencies.ts</code>) gains <code>"manual"</code> alongside
+        <code>observed</code> / <code>estimated</code> / <code>unvalidated</code>. Reusing <code>observed</code>
+        would conflate "this is ground truth from a real transaction" with "someone typed this in" — two very
+        different epistemic states this project has been careful to keep distinct since v0.1's refutation of
+        PayPal's published 4.40%. <code>src/components/fee-breakdown.tsx</code>'s <code>ConfidenceBadge</code>
+        gets a fourth label/class pair (<code>"Overridden"</code>, an ink-toned badge — <code>estimated</code>
+        already owns brass, <code>unvalidated</code> already owns oxide). <code>engine.ts</code>'s
+        <code>confidenceFor()</code> needs no change: it only ever downgrades <code>"observed"</code> to
+        <code>"estimated"</code> for a non-USD static fixed fee, so <code>"manual"</code> passes through it
+        untouched. <code>fee_models.confidence</code>'s database check constraint stays three-valued —
+        <code>"manual"</code> is a display/engine concept, and it never gets written into a
+        <code>fee_models</code> row.
+      </p>
+    </div>
+    <p>
+      <code>engine.ts</code> gets one added branch in <code>commercialFee.note</code> (and the analogous
+      spot for <code>fxConversion.note</code>) naming the override and its effective date, alongside the
+      existing static-schedule and ledger-model note branches. Because <code>ratesAsOf</code> already moves
+      whenever the resolved model's version changes, an override correctly triggers the existing share-link
+      drift warning (<code>src/lib/share/drift.ts</code>'s <code>hasFrozenDrift()</code>) for any
+      <code>/breakdown</code> link generated before it — no change needed there.
+    </p>
+    <p>
+      Every call site that fetches the active model must also fetch and pass overrides:
+      <code>src/app/page.tsx</code> (then through to <code>src/components/calculator.tsx</code>'s existing
+      <code>resolveFeeModel</code> call), <code>src/app/breakdown/page.tsx</code> (both
+      <code>generateMetadata</code> and the page body), and <code>src/app/ledger/status.ts</code>.
+    </p>
+  </section>
+
+  <section>
+    <h2>The table — <code>src/lib/fees/rate-rows.ts</code> (new, pure) + <code>src/components/ledger/rates-table.tsx</code></h2>
+    <p>
+      One pure function resolves provenance for every row, independent of any database call, so it's
+      unit-testable without Supabase:
+    </p>
+    <pre>export interface RateRow {
+  targetKey: string;
+  target: OverrideTarget;
+  label: string;        // "Rest of world · $0–$3,000" | "CAD — Canadian Dollar" | "Currency conversion spread"
+  display: string;      // "4.625%" | "$0.31" | "4.0%"
+  source: FeeSource;
+  effectiveDate: string;
+  setBy?: string;
+  setAt?: string;
+  baseline?: { display: string; source: FeeSource; effectiveDate: string };  // masked figure, if overridden
+  note?: string;
+  applicable: boolean;  // false for the volume tiers Ms. K doesn't qualify for
+}
+
+export function buildRateRows(
+  activeModel: ActiveFeeModelRow | null,
+  overrides: ActiveOverrides,
+): RateRow[];</pre>
+    <p>
+      Three sections on <code>/ledger</code>, in one new panel below the existing status panel:
+      <strong>Commercial rate</strong> (one row per <code>SCHEDULE</code> entry — the three higher
+      <code>OTHER</code> volume tiers render with <code>applicable: false</code> and a "not applicable — Ms. K
+      doesn't qualify for volume discounts" caption, per <code>CLAUDE.md</code> § "Domain model"),
+      <strong>Fixed fee per currency</strong> (23 rows, USD first), and <strong>Currency conversion
+      spread</strong> (one row).
+    </p>
+    <p>
+      Columns: <em>Parameter</em>, <em>Value</em>, <em>Where it comes from</em>, <em>As of</em>, and an
+      override control. The source column links out (<code>target="_blank" rel="noopener noreferrer"</code>)
+      for <code>published</code> / <code>third-party</code> kinds; a <code>derived</code> row shows "Computed
+      by this app" plus that model's own <code>note</code>; a <code>manual</code> row shows "Manual override ·
+      set by <em>email</em> on <em>date</em>" with the masked baseline value rendered underneath it, using the
+      same <code>ConfidenceBadge</code> idiom <code>fee-breakdown.tsx</code> already establishes.
+    </p>
+    <p>
+      The override control is a native <code>&lt;details&gt;</code> disclosure per row, wrapping a plain
+      server-action <code>&lt;form&gt;</code> (a value input prefilled with the current figure, an
+      <code>effective from</code> date input, an optional note, Save — plus a Clear button when an override is
+      already active). No client component: every file under <code>src/app/ledger/</code> is a server
+      component today, and this keeps that true with zero client JS for what would otherwise be ~30 editable
+      rows.
+    </p>
+    <p>
+      Reuses <code>isScheduleReviewOverdue(new Date())</code> (<code>src/lib/fees/schedule.ts:43</code>) for a
+      staleness banner above the table — it currently has exactly one consumer,
+      <code>src/components/calculator.tsx</code>, and this table is its natural second home on
+      <code>/ledger</code>, which today shows no staleness signal at all.
+    </p>
+  </section>
+
+  <section>
+    <h2>Server actions — <code>src/app/ledger/actions.ts</code></h2>
+    <p>
+      <code>setOverrideAction</code> and <code>clearOverrideAction</code>, both gated with
+      <code>requireUser("/ledger")</code> — not <code>requireAdmin</code>, per the confirmed decision that both
+      roles can override. Each re-derives the target with <code>parseTargetKey</code> against the real
+      <code>SCHEDULE</code> and <code>CURRENCIES</code> tables and rejects anything that doesn't resolve — form
+      fields are attacker-editable, the same guard <code>acceptProposalAction</code> and
+      <code>revertToModelAction</code> already apply by re-reading server-side rather than trusting a posted
+      value. On success, <code>revalidatePath</code> for <code>/ledger</code>, <code>/</code>, and
+      <code>/breakdown</code>, matching <code>acceptProposalAction</code>'s existing revalidation set exactly.
+      On failure, redirect to <code>/ledger?error=bad_override</code>, rendered by the same banner pattern
+      already at <code>src/app/ledger/page.tsx:53</code> for <code>not_admin</code>.
+    </p>
+  </section>
+
+  <section>
+    <h2>The masking warning — <code>src/components/ledger/status-panel.tsx</code></h2>
+    <p>
+      When an override exists on <code>rate:OTHER:0</code>, <code>fixedFee:USD</code>, or
+      <code>fxSpread</code> — the three targets the solver in <code>src/lib/fees/propose.ts</code> can actually
+      reach a verdict on — and that target's verdict is <code>confirmed</code> or <code>propose</code>, the
+      relevant status-panel section shows both figures side by side with the sentence "a manual override is
+      masking what your transactions determine," plus an inline Clear button reusing
+      <code>clearOverrideAction</code>. <code>acceptProposalAction</code> itself is left untouched — accepting
+      a solver proposal never clears an unrelated override, per the confirmed decision that nothing changes a
+      typed-in figure silently.
+    </p>
+  </section>
+
+  <section>
+    <h2>Tests</h2>
+    <ul class="steps">
+      <li><code>src/lib/fees/overrides.test.ts</code> — <code>targetKey</code> / <code>parseTargetKey</code>
+      round-trip; parsing rejects an unknown market, an unknown currency, a tier bound that doesn't match
+      <code>SCHEDULE</code>, and a malformed key; value-bound checks; the JPY conversion case (typing
+      <code>40</code> into the fixed-fee field yields <code>40</code> minor units, not <code>4000</code>).</li>
+      <li><code>src/lib/fees/rate-rows.test.ts</code> — the full precedence ladder (static → ledger model →
+      override) at every level; a cleared override correctly falls back to whatever's beneath it; and a
+      <strong>coverage guard</strong>: every <code>SCHEDULE</code> and <code>CURRENCIES</code> entry produces
+      exactly one row with a resolvable <code>FeeSource</code>, so adding a currency later without a source
+      mapping fails this suite instead of silently rendering nothing.</li>
+      <li><code>src/lib/fees/model.test.ts</code> — <code>resolveFeeModel</code> with overrides present:
+      resolved <code>confidence</code> is <code>"manual"</code>, <code>asOf</code> is the override's effective
+      date, and — the case v0.5 couldn't reach — a UAE or EEA/UK rate override actually applies, where a
+      <code>fee_models</code> row on its own does not.</li>
+      <li><code>src/lib/fees/engine.test.ts</code> stays <strong>unmodified</strong>. That it keeps passing
+      unmodified is itself the regression guard proving the no-override path is byte-identical to v0.5 —
+      exactly the discipline v0.5's own plan applied to its 20 pre-existing tests.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Known limitations to record, not hide</h2>
+    <ul class="steps">
+      <li><strong>An override is a flat current value, not a time series.</strong>
+      <code>effective_from</code> is recorded and displayed, but nothing in this design recomputes an old
+      transaction against whichever figure was actually in force on its own date. Stated plainly in the UI,
+      not solved here.</li>
+      <li><strong>A typo'd override silently changes what a client is quoted.</strong> The mitigations are the
+      visible "Overridden" badge, the two dates, append-only history, and the ledger-conflict masking warning
+      — deliberately not a second-approval step, which two already-trusted accounts don't warrant, the same
+      reasoning v0.5 applied to letting Ms. K accept a solver proposal herself.</li>
+      <li>The <code>~0.22pp</code> unexplained gap between the observed 4.625% rate and PayPal's published
+      4.40% (<code>CLAUDE.md</code> § "Domain model") stays parked and unresolved, per the user's standing
+      direction. This plan must not be read as closing it — an override happens to be able to paper over that
+      gap for display purposes, but that isn't the same as explaining it.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Files to create / change</h2>
+    <table class="files-table">
+      <thead><tr><th>Path</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>src/lib/fees/sources.ts <em>(new)</em></td><td>Named <code>FeeSource</code> registry — the five source-URL constants currently duplicated in <code>schedule.ts</code>/<code>currencies.ts</code></td></tr>
+        <tr><td>src/lib/fees/overrides.ts <em>(new)</em></td><td><code>OverrideTarget</code>, key encode/decode/validate, value validation</td></tr>
+        <tr><td>src/lib/fees/rate-rows.ts <em>(new)</em></td><td>Pure provenance resolution — static table → ledger model → override — into <code>RateRow[]</code></td></tr>
+        <tr><td>src/lib/db/fee-overrides.ts <em>(new)</em></td><td><code>getActiveOverrides</code> (cached, degrade-to-empty), <code>listOverrideHistory</code>, <code>setOverride</code>, <code>clearOverride</code></td></tr>
+        <tr><td>src/components/ledger/rates-table.tsx <em>(new)</em></td><td>The three-section table + per-row override <code>&lt;details&gt;</code> form</td></tr>
+        <tr><td>supabase/migrations/20260812000000_fee_overrides.sql <em>(new)</em></td><td><code>fee_overrides</code> table, trigger-stamped <code>set_by</code>, column-level anon grant, RLS</td></tr>
+        <tr><td>src/lib/fees/schedule.ts, currencies.ts</td><td><code>sourceUrl: string</code> → <code>sourceId: FeeSourceId</code> on every row</td></tr>
+        <tr><td>src/lib/fees/model.ts</td><td><code>resolveFeeModel</code> gains the <code>overrides</code> argument and applies it last</td></tr>
+        <tr><td>src/lib/fees/currencies.ts</td><td><code>Confidence</code> gains <code>"manual"</code></td></tr>
+        <tr><td>src/lib/fees/engine.ts</td><td>Added note branch naming an active override; no change to <code>confidenceFor()</code></td></tr>
+        <tr><td>src/components/fee-breakdown.tsx</td><td><code>ConfidenceBadge</code> gains the <code>"manual"</code> label/class</td></tr>
+        <tr><td>src/app/ledger/page.tsx</td><td>Renders the active model it already fetches and discards; mounts the new rates table</td></tr>
+        <tr><td>src/app/ledger/status.ts</td><td>Also fetches <code>getActiveOverrides()</code></td></tr>
+        <tr><td>src/app/ledger/actions.ts</td><td><code>setOverrideAction</code>, <code>clearOverrideAction</code></td></tr>
+        <tr><td>src/components/ledger/status-panel.tsx</td><td>Masking warning when an override shadows a solver verdict</td></tr>
+        <tr><td>src/app/page.tsx, src/components/calculator.tsx, src/app/breakdown/page.tsx</td><td>Fetch and pass <code>overrides</code> alongside the active model, unchanged otherwise</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Doc updates in the same change, per <code>CLAUDE.md</code> § "Before pushing to remote":
+      <code>docs/CHANGELOG.md</code>, <code>CLAUDE.md</code> § "Project status" and the Supabase section
+      (noting <code>fee_overrides</code> and its column-level anon grant), and
+      <code>docs/FEE-TABLE-REFRESH.md</code> (one added checklist step — on each quarterly review, check
+      whether a standing override is still needed or should be cleared now that the published figure has been
+      re-read).
+    </p>
+  </section>
+
+  <section>
+    <h2>Execution order</h2>
+    <ol class="exec">
+      <li><code>docs/plan-v0.6.html</code> — this document.</li>
+      <li><code>sources.ts</code>, <code>overrides.ts</code>, <code>rate-rows.ts</code> with tests, pure and
+      entirely offline — locks the provenance and precedence logic before any schema or UI exists, the same
+      order v0.5 applied to <code>solve.ts</code>/<code>propose.ts</code>.</li>
+      <li><code>schedule.ts</code> / <code>currencies.ts</code>'s mechanical <code>sourceUrl</code> →
+      <code>sourceId</code> swap.</li>
+      <li>Migration: <code>fee_overrides</code> table, trigger, RLS, column grants. Apply with <code>psql
+      "$POSTGRES_URL_NON_POOLING" -f supabase/migrations/20260812000000_fee_overrides.sql</code> per
+      <code>CLAUDE.md</code> § "Supabase."</li>
+      <li><code>src/lib/db/fee-overrides.ts</code>; thread <code>overrides</code> through
+      <code>resolveFeeModel</code> and every call site.</li>
+      <li>Rates table UI + override forms on <code>/ledger</code>; status-panel masking warning.</li>
+      <li>Docs.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Verification</h2>
+    <ul class="steps">
+      <li><code>pnpm test</code> — the new suites above pass, and <code>engine.test.ts</code> passes
+      <strong>unmodified</strong>, proving the no-override path is byte-identical to v0.5.</li>
+      <li><strong>Precedence test</strong> — with a <code>fee_models</code> row and an override on the same
+      target both present, the override's value, <code>"manual"</code> confidence, and <code>asOf</code> are
+      what <code>settle()</code> actually uses.</li>
+      <li><strong>Masking test</strong> — seed transactions that would otherwise trigger a <code>propose</code>
+      verdict on the USD fixed fee, add an override on it, and confirm the status panel shows both figures and
+      the masking warning rather than silently favoring either one.</li>
+      <li><strong>Fallback test</strong> — with <code>fee_overrides</code> unreachable,
+      <code>getActiveOverrides()</code> returns <code>[]</code> and <code>/</code> /
+      <code>/breakdown</code> still render using the ledger model or static table, never erroring.</li>
+      <li><strong>End-to-end</strong>, via the <code>claude-for-safari</code> skill per <code>CLAUDE.md</code>
+      (new tab, screenshot to <code>.playwright-mcp/</code>, close and clean up when done): sign in as each
+      role; open <code>/ledger</code> and confirm every row of the commercial-rate, fixed-fee, and FX-spread
+      sections shows a value, a named source (linked out where applicable), and a date; set an override as
+      <code>user</code>, confirm it's visible immediately and badged "Overridden" with the set-by email and
+      both dates; confirm the public calculator at <code>/</code> and a freshly generated
+      <code>/breakdown</code> link both reflect it; clear it and confirm both revert; confirm a
+      pre-override <code>/breakdown</code> link now shows the drift warning.</li>
+      <li><code>pnpm typecheck</code>, <code>pnpm build</code> clean.</li>
+      <li>Confirm <code>git status</code> is clean of screenshots and temp files before pushing, per
+      <code>CLAUDE.md</code> § "Visual verification and debugging."</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Corrections after implementation</h2>
+    <p>
+      A code review of the commit implementing this plan found ten issues, all fixed in the same push. Recorded
+      here — same convention as <code>docs/plan-share-link-drift.html</code>'s "Trust boundary" section — because
+      two of them revise decisions this plan stated as settled.
+    </p>
+    <ul class="steps">
+      <li><strong>An override can only ever reach the tier <code>resolveFeeModel</code> actually selects for
+      quoting.</strong> This plan's <code>applicable</code> flag (the table's dimming) was originally
+      display-only — the three higher <code>OTHER</code>-market volume tiers still rendered a working Override
+      form, even though <code>resolveFeeModel</code> hardcodes <code>selectTier(buyerMarket, 0)</code> and can
+      never look them up. Setting one of those overrides was silently accepted and displayed as "in force" while
+      never affecting a single quote. Fixed by a new <code>isQuotedTier()</code> in <code>schedule.ts</code>,
+      used to hide the Override control in <code>rates-table.tsx</code> <em>and</em> to reject the target
+      server-side in <code>setOverrideAction</code> (a raw POST bypassing the hidden control must fail too, the
+      same reasoning already applied to every other server-side re-validation in <code>actions.ts</code>).</li>
+      <li><strong><code>DisplayConfidence</code>'s <code>"manual"</code> value needed its own downgrade and
+      labeling rules, not silent pass-through.</strong> <code>engine.ts</code>'s <code>confidenceFor()</code>
+      (which downgrades a commercial fee's confidence when a non-USD currency's fixed fee is still the static,
+      unvalidated figure) special-cased only <code>"observed"</code>, written before <code>"manual"</code>
+      existed — so a rate override with no matching fixed-fee override badged the whole non-USD fee
+      "Overridden," half of which was untouched. The same gap existed in reverse in
+      <code>model.ts</code>'s <code>resolveFeeModel</code> (a fixed-fee-only override could mask a
+      still-unvalidated static rate as <code>"manual"</code>), and in two of <code>settle()</code>'s note
+      strings, which cited "the accepted ledger model" or PayPal's published 4.0% spread even when the actual
+      source was a manual override. All four now check for <code>"manual"</code> explicitly rather than falling
+      through an allow-list written for three values.</li>
+      <li><strong>Two form-input bugs in the override path.</strong> An empty Value field parsed to
+      <code>Number("") === 0</code>, a finite, in-range number — clearing the box and saving silently set a 0%
+      rate or spread. And <code>percentFormValue</code>'s <code>String(rate * 100)</code> prefilled the form
+      with floating-point noise (<code>"4.6899999999999995"</code> for 4.69%) that didn't match the
+      <code>.toFixed(3)</code> value shown next to it — saving the form unedited, e.g. just to add a note, would
+      drift the stored value and flip the row to "Manual" for no real change.</li>
+      <li><strong><code>setOverrideAction</code>/<code>clearOverrideAction</code> persisted the raw form field,
+      not the value <code>parseTargetKey</code> had just validated.</strong> A syntactically-valid but
+      non-canonical key (<code>"rate:OTHER:00"</code>, which <code>parseTargetKey</code> accepts and resolves to
+      the same tier as <code>"rate:OTHER:0"</code>) was stored verbatim, so <code>findOverride</code> — which
+      always looks up the canonical form — never matched it. The row was accepted, invisible everywhere, and
+      could never be cleared through the UI. Fixed by re-serializing the validated target with
+      <code>targetKey()</code> before every write, instead of trusting the posted string.</li>
+      <li>Two smaller fixes: the status panel's per-currency fixed-fee list had no masking-warning check at all
+      (only the commercial-rate/USD-fixed-fee section did), and that section's own warning was a ternary chain
+      that rendered only one of two simultaneously-active overrides rather than both, as this plan's "masking
+      warning" section intended. And the "Computed by this app from T1–T3" source now links to the file on
+      GitHub rather than a repo-relative <code>docs/CONSTITUTION.md</code> path that 404s once deployed (no
+      route in this app serves <code>docs/</code>).</li>
+    </ul>
+  </section>
+
+  <footer class="sources">
+    <strong>Sources</strong>
+    <ul>
+      <li><a href="plan-v0.5.html">docs/plan-v0.5.html</a> — house style this document follows; the
+      <code>fee_models</code> append-only/precedence pattern this plan's <code>fee_overrides</code> extends
+      one level higher, and the accounts/capability reasoning this plan departs from deliberately (both roles
+      get override access, unlike admin-only revert/exclude)</li>
+      <li><code>src/lib/fees/{schedule,currencies,model,engine,types}.ts</code>,
+      <code>src/lib/db/fee-models.ts</code>, <code>src/app/ledger/{page.tsx,status.ts,actions.ts}</code>,
+      <code>src/components/ledger/status-panel.tsx</code>, <code>src/components/fee-breakdown.tsx</code> — the
+      implemented v0.1–v0.5 surfaces this plan builds on, read in full before drafting; confirmed by direct
+      search that <code>sourceUrl</code>/<code>effectiveFrom</code> reach no UI today and
+      <code>loadLedgerStatus()</code>'s <code>activeModel</code> is fetched and discarded by
+      <code>src/app/ledger/page.tsx</code></li>
+      <li><code>supabase/migrations/20260810160000_v0_5_ledger.sql</code>,
+      <code>20260811090000_allowed_accounts.sql</code>, <code>20260811120000_derive_ledger_access.sql</code> —
+      the append-only-table, insert-policy, and identity-derivation patterns this plan's migration follows</li>
+      <li><code>docs/FEE-TABLE-REFRESH.md</code> — the two PayPal source URLs
+      (<code>merchant-fees</code>, <code>business-fees</code>) and the quarterly review checklist this plan's
+      new step extends</li>
+      <li><code>CLAUDE.md</code> § "Domain model" — the JPY minor-unit scaling trap this plan's
+      value-conversion step must respect, the volume-tier ineligibility this plan's <code>applicable</code>
+      flag encodes, and the parked ~0.22pp gap this plan does not resolve</li>
+    </ul>
+  </footer>
+
+</div>
+</body>
+</html>

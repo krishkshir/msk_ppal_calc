@@ -1,4 +1,4 @@
-import type { Breakdown, Confidence } from "@/lib/fees/types";
+import type { Breakdown, DisplayConfidence } from "@/lib/fees/types";
 import { formatAmount, formatMoney } from "@/lib/format";
 
 interface FeeBreakdownProps {
@@ -11,19 +11,21 @@ interface FeeBreakdownProps {
   receivedLabel?: string;
 }
 
-const CONFIDENCE_LABEL: Record<Confidence, string> = {
+const CONFIDENCE_LABEL: Record<DisplayConfidence, string> = {
   observed: "Observed",
   estimated: "Estimated",
   unvalidated: "Unvalidated",
+  manual: "Overridden",
 };
 
-const CONFIDENCE_CLASS: Record<Confidence, string> = {
+const CONFIDENCE_CLASS: Record<DisplayConfidence, string> = {
   observed: "border-teal/50 text-teal",
   estimated: "border-brass/60 text-brass",
   unvalidated: "border-oxide/50 text-oxide",
+  manual: "border-ink/50 text-ink",
 };
 
-function ConfidenceBadge({ confidence, note }: { confidence: Confidence; note?: string }) {
+function ConfidenceBadge({ confidence, note }: { confidence: DisplayConfidence; note?: string }) {
   return (
     <span
       title={note}
@@ -41,7 +43,7 @@ interface Row {
   /** Width of the fill, as a fraction (0-1) of this row's phase starting amount. */
   fraction: number;
   tone: "gross" | "deduction" | "result" | "transition";
-  badge?: { confidence: Confidence; note?: string };
+  badge?: { confidence: DisplayConfidence; note?: string };
   /** Rendered as a caption directly above this row, marking a currency-phase change. */
   dividerAbove?: string;
 }

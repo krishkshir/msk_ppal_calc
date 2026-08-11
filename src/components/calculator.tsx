@@ -10,6 +10,7 @@ import { describeCalculationError } from "@/lib/fees/errors";
 import { quote, settle } from "@/lib/fees/engine";
 import { countrySpec, marketForCountry } from "@/lib/fees/markets";
 import { resolveFeeModel, type ActiveFeeModelRow } from "@/lib/fees/model";
+import type { ActiveOverrides } from "@/lib/fees/overrides";
 import {
   ACCOUNT_CURRENCY,
   REVIEW_INTERVAL_DAYS,
@@ -36,9 +37,11 @@ interface CalculatorProps {
    * currencies.ts constants exactly as v0.1-v0.4 always did.
    */
   activeModel: ActiveFeeModelRow | null;
+  /** Manual rate/fee overrides (v0.6) — beats both activeModel and the static constants. See src/lib/fees/model.ts's resolveFeeModel. */
+  overrides: ActiveOverrides;
 }
 
-export function Calculator({ activeModel }: CalculatorProps) {
+export function Calculator({ activeModel, overrides }: CalculatorProps) {
   const [mode, setMode] = useState<CalculatorMode>("quote");
   const [amountInput, setAmountInput] = useState("");
   const [country, setCountry] = useState("US");
@@ -95,7 +98,7 @@ export function Calculator({ activeModel }: CalculatorProps) {
     if (payCurrency !== ACCOUNT_CURRENCY && fx.status !== "ready") return null;
 
     const fxBaseRateToUSD = fx.status === "ready" ? fx.rate.rate : undefined;
-    const model = resolveFeeModel(activeModel, buyerMarket, payCurrency);
+    const model = resolveFeeModel(activeModel, buyerMarket, payCurrency, overrides);
 
     try {
       if (mode === "settle") {
@@ -127,7 +130,7 @@ export function Calculator({ activeModel }: CalculatorProps) {
     } catch (error) {
       return { status: "error", message: describeCalculationError(error) };
     }
-  }, [amountMinorUnits, mode, payCurrency, buyerMarket, fx, activeModel]);
+  }, [amountMinorUnits, mode, payCurrency, buyerMarket, fx, activeModel, overrides]);
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-16">

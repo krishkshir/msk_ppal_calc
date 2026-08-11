@@ -395,21 +395,66 @@ describe("settle — optional model override (v0.5 ledger)", () => {
   });
 });
 
+describe("settle — manual override labeling (v0.6 fixes)", () => {
+  it("an fxSpreadConfidence of 'manual' does not cite the static 4.0%/published fallback text", () => {
+    const result = settle({
+      grossPaidMinorUnits: 100_000,
+      payCurrency: "CAD",
+      buyerMarket: "OTHER",
+      monthlyVolumeUSDCents: 0,
+      fxBaseRateToUSD: 0.73,
+      model: { fxSpreadRate: 0.03, fxSpreadConfidence: "manual", asOf: "2026-08-01" },
+    });
+    expect(result.fxConversion?.confidence).toBe("manual");
+    expect(result.fxConversion?.note).not.toMatch(/4\.0%/);
+    expect(result.fxConversion?.note).not.toMatch(/published/);
+  });
+
+  it("a 'manual' rate override with no matching non-USD fixed-fee override downgrades the commercial confidence", () => {
+    // Only the rate half was corrected by hand; the CAD fixed fee still
+    // comes from the static, unvalidated per-currency table — the
+    // combined commercialFee confidence can't stay "manual".
+    const result = settle({
+      grossPaidMinorUnits: 100_000,
+      payCurrency: "CAD",
+      buyerMarket: "OTHER",
+      monthlyVolumeUSDCents: 0,
+      fxBaseRateToUSD: 0.73,
+      model: { rate: 0.05, confidence: "manual", asOf: "2026-08-01" },
+    });
+    expect(result.commercialFee.confidence).not.toBe("manual");
+    expect(result.commercialFee.confidence).toBe("estimated");
+  });
+
+  it("a manual override with no backing ledger row does not claim to be 'the accepted ledger model'", () => {
+    const result = settle({
+      grossPaidMinorUnits: 8300,
+      payCurrency: "USD",
+      buyerMarket: "OTHER",
+      monthlyVolumeUSDCents: 0,
+      model: { rate: 0.05, fixedFeeMinorUnits: 100, confidence: "manual", asOf: "2026-08-01" },
+    });
+    expect(result.commercialFee.note).not.toMatch(/accepted ledger model/);
+  });
+});
+
 describe("schedule metadata", () => {
-  it("every schedule entry carries effectiveFrom, sourceUrl, and confidence", async () => {
+  it("every schedule entry carries effectiveFrom, a resolvable sourceId, and confidence", async () => {
     const { SCHEDULE } = await import("./schedule");
+    const { feeSource } = await import("./sources");
     for (const entry of SCHEDULE) {
       expect(entry.effectiveFrom).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-      expect(entry.sourceUrl.length).toBeGreaterThan(0);
+      expect(feeSource(entry.sourceId).label.length).toBeGreaterThan(0);
       expect(["observed", "estimated", "unvalidated"]).toContain(entry.confidence);
     }
   });
 
-  it("every currency entry carries effectiveFrom, sourceUrl, and confidence", async () => {
+  it("every currency entry carries effectiveFrom, a resolvable sourceId, and confidence", async () => {
     const { CURRENCIES } = await import("./currencies");
+    const { feeSource } = await import("./sources");
     for (const entry of CURRENCIES) {
       expect(entry.effectiveFrom).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-      expect(entry.sourceUrl.length).toBeGreaterThan(0);
+      expect(feeSource(entry.sourceId).label.length).toBeGreaterThan(0);
       expect(["observed", "estimated", "unvalidated"]).toContain(entry.confidence);
     }
   });
