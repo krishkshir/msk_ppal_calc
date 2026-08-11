@@ -53,7 +53,14 @@ export type CommercialVerdict =
       confirmedBand: FeasibleModel;
       confirmedByCount: number;
     }
-  | { kind: "propose"; feasible: FeasibleModel[]; proposedModel: FeasibleModel; spread: AmountSpread[] }
+  | {
+      kind: "propose";
+      feasible: FeasibleModel[];
+      proposedModel: FeasibleModel;
+      spread: AmountSpread[];
+      /** The ids of the observations that determined this proposal — the only legitimate source for fee_models.source_transaction_ids on accept. */
+      sourceTransactionIds: string[];
+    }
   | {
       kind: "unresolved";
       feasible: FeasibleModel[];
@@ -117,7 +124,13 @@ export function decideCommercial(
     // median by fixed fee is a *display* choice, not a uniqueness claim —
     // feasible[] always ships alongside it so a reviewer sees the whole band.
     const proposedModel = feasible[Math.floor(feasible.length / 2)]!;
-    return { kind: "propose", feasible, proposedModel, spread };
+    return {
+      kind: "propose",
+      feasible,
+      proposedModel,
+      spread,
+      sourceTransactionIds: observations.map((o) => o.id),
+    };
   }
 
   return {

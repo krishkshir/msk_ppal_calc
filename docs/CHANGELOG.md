@@ -106,6 +106,57 @@ the substantive changes.
     watching the model reconfirm, a genuine resolution triggering a
     propose verdict, accepting it, and an admin reverting to the prior
     model — all through the real UI, not mocked.
+- Fixed a set of bugs in v0.5's ledger found by a code review run against
+  it before it was pushed further, the most serious of which repeats the
+  share-link "Trust boundary" mistake below in a new place: `acceptProposalAction`/
+  `revertToModelAction` (`src/app/ledger/actions.ts`) inserted the
+  rate/fixedFee/fxSpreadRate straight from hidden form fields into the
+  live, anon-readable `fee_models` table with no server-side check that
+  those numbers matched anything real. A Next.js server action is a
+  public POST endpoint — any caller could post arbitrary figures and set
+  the model every public `settle()`/`quote()` call reads, not just the
+  values the status panel actually rendered.
+  - `acceptProposalAction` now takes no client input at all: it
+    recomputes `computeLedgerStatus` from the real, current transactions
+    (`src/app/ledger/status.ts`, new — shared with the ledger page so
+    both read the same computation) and only inserts if that fresh
+    result is still `"propose"`, using its `proposedModel` and the
+    observation ids that produced it (`CommercialVerdict`'s `"propose"`
+    case in `src/lib/fees/propose.ts` now carries `sourceTransactionIds`
+    for this).
+  - `revertToModelAction` now takes only a target row `id` from the form;
+    `getFeeModelById` (`src/lib/db/fee-models.ts`, new) looks up that
+    row's real rate/fixedFee/spread/per-currency fees/confidence rather
+    than trusting them from hidden fields.
+  - `acceptFeeModel` (`src/lib/db/fee-models.ts`) was silently dropping
+    `per_currency_fixed_fees` and `fx_spread_confidence` on every insert
+    it made — every accept or revert reset a currency's validated fixed
+    fees back to empty and reset the spread's confidence to `"estimated"`
+    even after it had genuinely been observed. Both accept and revert now
+    carry these forward explicitly.
+  - `computeLedgerStatus` (`src/lib/fees/ledger-status.ts`) fell back to
+    the USD fixed fee (`current.fixedFeeMinorUnits`) for any non-USD
+    currency with no per-currency entry yet, rather than that currency's
+    own published fixed fee — e.g. treating an HUF transaction as if its
+    fixed fee were 31 minor units instead of 9,000. Now falls back to
+    `currencySpec(payCurrency).fixedFeeMinorUnits`.
+  - `settle()` (`src/lib/fees/engine.ts`) labeled the FX-spread line
+    "from the accepted ledger model" whenever any ledger model was
+    active at all, contradicting the `"estimated"` confidence badge
+    rendered right next to it the moment that model's spread was still
+    just the carried-forward default. Now gated on
+    `fxSpreadConfidence === "observed"`, matching the badge.
+  - `recordTransactionAction` silently turned a non-numeric "PayPal's
+    exchange rate" field into `null` via `Number(...)` → `NaN` →
+    Supabase serializing `NaN` as `null`, with no error shown. Now
+    rejected with a validation error, same as the form's other fields.
+  - The six copies of the `getCurrentUser()`-then-redirect-if-unauthorized
+    guard across `src/app/ledger/` collapsed into `requireUser()`/
+    `requireAdmin()` (`src/lib/auth/profile.ts`, new) — no behavior
+    change, just one place to get it right.
+  - `CLAUDE.md` corrected: it described an admin "correct a transaction,
+    edit the seeded T1–T3 rows" capability that was never built — only
+    exclude exists.
 - Fixed a security regression in the share-link staleness fix below, found
   by a follow-up code review run against it before it was pushed further.
   The staleness fix's first version rendered the frozen `fee`/`net`/`spread`

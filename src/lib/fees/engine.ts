@@ -157,7 +157,7 @@ export function settle(input: SettleInput): Breakdown {
     minorUnits: atBaseRateMinorUnits - receivedMinorUnits,
     currency: ACCOUNT_CURRENCY,
     confidence: model?.fxSpreadConfidence ?? "estimated",
-    note: model?.fxSpreadRate != null
+    note: model?.fxSpreadConfidence === "observed"
       ? `Currency conversion spread from the accepted ledger model (dated ${asOf}).`
       : "No observed transaction involves a currency conversion — this line " +
         "item is PayPal's published 4.0% MEA-region spread applied as-is, " +

@@ -2,16 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth/profile";
-import { acceptFeeModel, getActiveFeeModel } from "@/lib/db/fee-models";
+import { requireAdmin, requireUser } from "@/lib/auth/profile";
+import { acceptFeeModel, getActiveFeeModel, getFeeModelById } from "@/lib/db/fee-models";
 import { excludeTransaction, recordTransaction } from "@/lib/db/transactions";
 import { isCurrency } from "@/lib/fees/currencies";
 import { parseAmountToMinorUnits } from "@/lib/format";
 import { getFxRateToUSD } from "@/lib/fx/frankfurter";
+import { loadLedgerStatus } from "./status";
 
 export async function recordTransactionAction(formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login?next=/ledger");
+  const user = await requireUser("/ledger");
 
   // A plain <form action={...}> server action must return void, not a
   // value (useActionState is the API for surfacing per-field errors) —
@@ -52,6 +52,14 @@ export async function recordTransactionAction(formData: FormData) {
   const paypalFeeMinorUnits =
     paypalFeeInput === "" ? null : parseAmountToMinorUnits(paypalFeeInput, payCurrency);
 
+  let paypalFxRate: number | null = null;
+  if (paypalFxRateInput !== "") {
+    paypalFxRate = Number(paypalFxRateInput);
+    if (!Number.isFinite(paypalFxRate) || paypalFxRate <= 0) {
+      return fail("PayPal's exchange rate must be a positive number.");
+    }
+  }
+
   let fxReferenceRate: number | null = null;
   let fxReferenceDate: string | null = null;
   if (payCurrency !== "USD" && paidOn) {
@@ -73,7 +81,7 @@ export async function recordTransactionAction(formData: FormData) {
     buyerCountry,
     paidOn,
     paypalFeeMinorUnits,
-    paypalFxRate: paypalFxRateInput ? Number(paypalFxRateInput) : null,
+    paypalFxRate,
     fxReferenceRate,
     fxReferenceDate,
     note,
@@ -88,26 +96,33 @@ export async function recordTransactionAction(formData: FormData) {
 
 /**
  * Self-service by design (docs/plan-v0.5.html "Accounts and access") —
- * either role can accept. `sourceTransactionIds`/rate/fixedFee/note are
- * hidden fields set by the status panel from the exact verdict it just
- * rendered, so acceptance can't drift from what the user actually saw.
+ * either role can accept. A server action is a public POST endpoint, so
+ * the rate/fixedFee/sourceTransactionIds being accepted are never taken
+ * from client-submitted form fields (a caller could otherwise post
+ * arbitrary figures straight into the live, anon-readable fee_models
+ * table — see the v0.4.x share-link "Trust boundary" precedent this
+ * mirrors). Instead this recomputes the ledger status from the real,
+ * current transactions and only proceeds if that fresh computation still
+ * says "propose".
  */
-export async function acceptProposalAction(formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login?next=/ledger");
+export async function acceptProposalAction() {
+  const user = await requireUser("/ledger");
 
-  const rate = Number(formData.get("rate"));
-  const fixedFeeMinorUnits = Number(formData.get("fixedFeeMinorUnits"));
-  const sourceTransactionIds = String(formData.get("sourceTransactionIds") ?? "")
-    .split(",")
-    .filter(Boolean);
+  const [{ status }, active] = await Promise.all([loadLedgerStatus(), getActiveFeeModel()]);
+  if (status.commercial.kind !== "propose") {
+    // Stale form (e.g. someone else already accepted, or a new
+    // transaction changed the verdict) — nothing to accept anymore.
+    redirect("/ledger");
+  }
 
-  const active = await getActiveFeeModel();
+  const { proposedModel, sourceTransactionIds } = status.commercial;
   const result = await acceptFeeModel({
-    rate,
-    fixedFeeMinorUnits,
+    rate: (proposedModel.rateLo + proposedModel.rateHi) / 2,
+    fixedFeeMinorUnits: proposedModel.fixedFeeMinorUnits,
     fxSpreadRate: active?.fxSpreadRate ?? 0.04,
+    perCurrencyFixedFees: active?.perCurrencyFixedFees ?? {},
     confidence: "observed",
+    fxSpreadConfidence: active?.fxSpreadConfidence ?? "estimated",
     sourceTransactionIds,
     acceptedBy: user.id,
     note: `Accepted from the ledger's commercial-rate proposal by ${user.email ?? user.id}.`,
@@ -123,8 +138,7 @@ export async function acceptProposalAction(formData: FormData) {
 
 /** RLS restricts the underlying update to role='admin'; this check just fails fast with a clearer redirect. */
 export async function excludeTransactionAction(formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user || user.role !== "admin") redirect("/login?next=/ledger");
+  await requireAdmin("/ledger");
 
   const id = String(formData.get("id") ?? "");
   const reason = String(formData.get("reason") ?? "").trim() || "Excluded by admin";
@@ -135,23 +149,33 @@ export async function excludeTransactionAction(formData: FormData) {
   redirect("/ledger");
 }
 
-/** Admin-only "revert" — reinserts a prior model's figures as a fresh row, keeping fee_models append-only rather than mutating history. */
+/**
+ * Admin-only "revert" — reinserts a prior model's figures as a fresh row,
+ * keeping fee_models append-only rather than mutating history. Only the
+ * target row's id is taken from the form; its rate/fixedFee/spread/
+ * per-currency fees/confidence are all looked up fresh from that row
+ * (getFeeModelById) rather than trusted from hidden form fields, for the
+ * same reason acceptProposalAction above recomputes rather than trusts.
+ */
 export async function revertToModelAction(formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user || user.role !== "admin") redirect("/login?next=/ledger");
+  const user = await requireAdmin("/ledger");
 
-  const rate = Number(formData.get("rate"));
-  const fixedFeeMinorUnits = Number(formData.get("fixedFeeMinorUnits"));
-  const fxSpreadRate = Number(formData.get("fxSpreadRate"));
+  const id = String(formData.get("id") ?? "");
+  const target = await getFeeModelById(id);
+  if (!target) {
+    redirect("/ledger");
+  }
 
   await acceptFeeModel({
-    rate,
-    fixedFeeMinorUnits,
-    fxSpreadRate,
-    confidence: "observed",
+    rate: target.rate,
+    fixedFeeMinorUnits: target.fixedFeeMinorUnits,
+    fxSpreadRate: target.fxSpreadRate,
+    perCurrencyFixedFees: target.perCurrencyFixedFees,
+    confidence: target.confidence,
+    fxSpreadConfidence: target.fxSpreadConfidence,
     sourceTransactionIds: [],
     acceptedBy: user.id,
-    note: `Reverted by admin ${user.email ?? user.id} to a prior accepted model.`,
+    note: `Reverted by admin ${user.email ?? user.id} to a prior accepted model (originally accepted ${target.asOf}).`,
   });
 
   revalidatePath("/ledger");

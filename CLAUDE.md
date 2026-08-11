@@ -105,10 +105,11 @@ payment date, not today's — cross-currency inference is against the ECB
 reference rate, not literally PayPal's own base rate, and is labeled as
 such. Two Supabase accounts: Ms. K can record transactions and accept a
 proposed model herself (self-service, no maintainer bottleneck); an admin
-account can additionally exclude/correct a transaction, edit the seeded
-T1–T3 rows, and revert to a prior accepted model (`fee_models` is
+account can additionally exclude a transaction (including the seeded
+T1–T3 rows) and revert to a prior accepted model (`fee_models` is
 append-only — revert re-inserts a prior model's figures as a fresh row
-rather than mutating history). `src/proxy.ts` (this Next.js version
+rather than mutating history). There is no correct/edit-in-place for a
+transaction — only exclude. `src/proxy.ts` (this Next.js version
 renamed `middleware.ts` to `proxy.ts`) gates `/ledger*` only — `/` and
 `/breakdown` stay public, since clients open `/breakdown` links with no
 login. See `docs/plan-v0.5.html` for the implementation plan this was

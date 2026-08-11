@@ -1,4 +1,4 @@
-import type { Currency } from "./currencies";
+import { currencySpec, type Currency } from "./currencies";
 import {
   decideCommercial,
   decideCurrencyFixedFee,
@@ -83,7 +83,7 @@ export function computeLedgerStatus(
     verdict: decideCurrencyFixedFee(
       observations,
       current.rate,
-      current.perCurrencyFixedFees[payCurrency] ?? current.fixedFeeMinorUnits,
+      current.perCurrencyFixedFees[payCurrency] ?? currencySpec(payCurrency).fixedFeeMinorUnits,
     ),
   }));
 
@@ -97,7 +97,9 @@ export function computeLedgerStatus(
     .map((t) => {
       const feeIsAssumed = t.paypalFeeMinorUnits == null;
       const commercialFeeMinorUnits =
-        t.paypalFeeMinorUnits ?? current.perCurrencyFixedFees[t.payCurrency] ?? current.fixedFeeMinorUnits;
+        t.paypalFeeMinorUnits ??
+        current.perCurrencyFixedFees[t.payCurrency] ??
+        currencySpec(t.payCurrency).fixedFeeMinorUnits;
       return {
         payCurrency: t.payCurrency,
         grossPaidMinorUnits: t.grossPaidMinorUnits,

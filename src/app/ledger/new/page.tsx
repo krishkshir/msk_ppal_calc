@@ -1,7 +1,6 @@
-import { redirect } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getCurrentUser } from "@/lib/auth/profile";
+import { requireUser } from "@/lib/auth/profile";
 import { CURRENCIES } from "@/lib/fees/currencies";
 import { COUNTRIES } from "@/lib/fees/markets";
 import { recordTransactionAction } from "../actions";
@@ -9,8 +8,7 @@ import { recordTransactionAction } from "../actions";
 const fieldLabelClass = "font-mono text-xs tracking-[0.08em] text-caption uppercase";
 
 export default async function NewTransactionPage(props: PageProps<"/ledger/new">) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login?next=/ledger/new");
+  await requireUser("/ledger/new");
   const searchParams = await props.searchParams;
   const error = typeof searchParams.error === "string" ? searchParams.error : null;
 

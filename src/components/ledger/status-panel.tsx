@@ -55,12 +55,6 @@ export function StatusPanel({ status, showDiagnostics }: StatusPanelProps) {
             {formatMoney(commercial.proposedModel.fixedFeeMinorUnits, "USD")}
           </p>
           <form action={acceptProposalAction} className="mt-3">
-            <input
-              type="hidden"
-              name="rate"
-              value={(commercial.proposedModel.rateLo + commercial.proposedModel.rateHi) / 2}
-            />
-            <input type="hidden" name="fixedFeeMinorUnits" value={commercial.proposedModel.fixedFeeMinorUnits} />
             <button
               type="submit"
               className="rounded-md bg-teal px-4 py-1.5 font-mono text-xs tracking-wider text-paper uppercase transition-colors hover:bg-teal/90"

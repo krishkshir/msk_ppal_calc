@@ -29,6 +29,25 @@ interface FeeModelRow {
  * per request (src/app/breakdown/page.tsx calls it from both
  * generateMetadata and the page body) issues one DB query, not two.
  */
+function mapFeeModelRow(data: FeeModelRow): ActiveFeeModelRow {
+  const perCurrencyFixedFees: Partial<Record<Currency, number>> = {};
+  for (const [code, minorUnits] of Object.entries(data.per_currency_fixed_fees)) {
+    if (isCurrency(code)) {
+      perCurrencyFixedFees[code] = minorUnits;
+    }
+  }
+
+  return {
+    rate: data.rate,
+    fixedFeeMinorUnits: data.fixed_fee_minor_units,
+    fxSpreadRate: data.fx_spread_rate,
+    perCurrencyFixedFees,
+    confidence: data.confidence,
+    fxSpreadConfidence: data.fx_spread_confidence,
+    asOf: data.accepted_at.slice(0, 10), // matches SCHEDULE_EFFECTIVE_FROM's YYYY-MM-DD shape
+  };
+}
+
 export const getActiveFeeModel = cache(async (): Promise<ActiveFeeModelRow | null> => {
   try {
     const supabase = await createClient();
@@ -45,22 +64,7 @@ export const getActiveFeeModel = cache(async (): Promise<ActiveFeeModelRow | nul
       return null;
     }
 
-    const perCurrencyFixedFees: Partial<Record<Currency, number>> = {};
-    for (const [code, minorUnits] of Object.entries(data.per_currency_fixed_fees)) {
-      if (isCurrency(code)) {
-        perCurrencyFixedFees[code] = minorUnits;
-      }
-    }
-
-    return {
-      rate: data.rate,
-      fixedFeeMinorUnits: data.fixed_fee_minor_units,
-      fxSpreadRate: data.fx_spread_rate,
-      perCurrencyFixedFees,
-      confidence: data.confidence,
-      fxSpreadConfidence: data.fx_spread_confidence,
-      asOf: data.accepted_at.slice(0, 10), // matches SCHEDULE_EFFECTIVE_FROM's YYYY-MM-DD shape
-    };
+    return mapFeeModelRow(data);
   } catch {
     // Network failure, missing env vars in a preview environment, etc. —
     // same fallback as an empty table, not a thrown error the public
@@ -68,6 +72,28 @@ export const getActiveFeeModel = cache(async (): Promise<ActiveFeeModelRow | nul
     return null;
   }
 });
+
+/**
+ * One historical row by id, for admin revert — the source of truth for
+ * what's reinserted, so revert can't be steered by a spoofed form value
+ * (see acceptProposalAction/revertToModelAction in src/app/ledger/actions.ts).
+ * Authenticated-only route; fee_models is anon-readable by RLS regardless.
+ */
+export async function getFeeModelById(id: string): Promise<ActiveFeeModelRow | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("fee_models")
+    .select(
+      "rate, fixed_fee_minor_units, fx_spread_rate, per_currency_fixed_fees, confidence, fx_spread_confidence, accepted_at",
+    )
+    .eq("id", id)
+    .maybeSingle<FeeModelRow>();
+
+  if (error || !data) {
+    return null;
+  }
+  return mapFeeModelRow(data);
+}
 
 export interface FeeModelHistoryEntry {
   id: string;
@@ -116,7 +142,9 @@ export interface AcceptFeeModel {
   rate: number;
   fixedFeeMinorUnits: number;
   fxSpreadRate: number;
+  perCurrencyFixedFees: Partial<Record<Currency, number>>;
   confidence: "observed" | "estimated" | "unvalidated";
+  fxSpreadConfidence: "observed" | "estimated" | "unvalidated";
   sourceTransactionIds: string[];
   acceptedBy: string;
   note: string;
@@ -129,7 +157,9 @@ export async function acceptFeeModel(input: AcceptFeeModel): Promise<{ ok: true 
     rate: input.rate,
     fixed_fee_minor_units: input.fixedFeeMinorUnits,
     fx_spread_rate: input.fxSpreadRate,
+    per_currency_fixed_fees: input.perCurrencyFixedFees,
     confidence: input.confidence,
+    fx_spread_confidence: input.fxSpreadConfidence,
     source_transaction_ids: input.sourceTransactionIds,
     accepted_by: input.acceptedBy,
     note: input.note,

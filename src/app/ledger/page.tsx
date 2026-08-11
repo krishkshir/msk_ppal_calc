@@ -1,47 +1,23 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { StatusPanel } from "@/components/ledger/status-panel";
 import { signOut } from "@/lib/auth/actions";
-import { getCurrentUser } from "@/lib/auth/profile";
-import { getActiveFeeModel, listFeeModelHistory } from "@/lib/db/fee-models";
-import { listTransactions } from "@/lib/db/transactions";
-import { computeLedgerStatus } from "@/lib/fees/ledger-status";
+import { requireUser } from "@/lib/auth/profile";
+import { listFeeModelHistory } from "@/lib/db/fee-models";
 import { formatMoney } from "@/lib/format";
 import { excludeTransactionAction, revertToModelAction } from "./actions";
+import { loadLedgerStatus } from "./status";
 
 // src/proxy.ts already redirects signed-out requests to /login, but a
 // Server Component should never rely on that alone — see the Next.js
 // proxy docs' own warning that a matcher change or refactor can silently
 // remove proxy coverage from a route without anyone noticing.
 export default async function LedgerPage() {
-  const user = await getCurrentUser();
-  if (!user) {
-    redirect("/login?next=/ledger");
-  }
+  const user = await requireUser("/ledger");
 
-  const [transactions, activeModel, history] = await Promise.all([
-    listTransactions(),
-    getActiveFeeModel(),
+  const [{ transactions, status }, history] = await Promise.all([
+    loadLedgerStatus(),
     user.role === "admin" ? listFeeModelHistory() : Promise.resolve([]),
   ]);
-
-  const status = computeLedgerStatus(
-    transactions.map((t) => ({
-      id: t.id,
-      grossPaidMinorUnits: t.grossPaidMinorUnits,
-      payCurrency: t.payCurrency,
-      receivedUSDMinorUnits: t.receivedUSDMinorUnits,
-      paypalFeeMinorUnits: t.paypalFeeMinorUnits,
-      fxReferenceRate: t.fxReferenceRate,
-      excludedReason: t.excludedReason,
-    })),
-    {
-      rate: activeModel?.rate ?? 0.04625,
-      fixedFeeMinorUnits: activeModel?.fixedFeeMinorUnits ?? 31,
-      fxSpreadRate: activeModel?.fxSpreadRate ?? 0.04,
-      perCurrencyFixedFees: activeModel?.perCurrencyFixedFees ?? {},
-    },
-  );
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-16">
@@ -130,9 +106,7 @@ export default async function LedgerPage() {
                   <span className="text-xs text-caption">active</span>
                 ) : (
                   <form action={revertToModelAction}>
-                    <input type="hidden" name="rate" value={h.rate} />
-                    <input type="hidden" name="fixedFeeMinorUnits" value={h.fixedFeeMinorUnits} />
-                    <input type="hidden" name="fxSpreadRate" value={h.fxSpreadRate} />
+                    <input type="hidden" name="id" value={h.id} />
                     <button type="submit" className="text-xs text-teal underline">
                       Revert to this
                     </button>

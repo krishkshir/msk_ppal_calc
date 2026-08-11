@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/db/supabase-server";
 
 export interface CurrentUser {
@@ -29,4 +30,18 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     email: data.claims.email ?? null,
     role: profile?.role === "admin" ? "admin" : "user",
   };
+}
+
+/** Redirects to /login?next=<next> if signed out, otherwise returns the signed-in user. */
+export async function requireUser(next: string): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!user) redirect(`/login?next=${next}`);
+  return user;
+}
+
+/** Redirects to /login?next=<next> if signed out or not an admin, otherwise returns the signed-in admin. */
+export async function requireAdmin(next: string): Promise<CurrentUser> {
+  const user = await requireUser(next);
+  if (user.role !== "admin") redirect(`/login?next=${next}`);
+  return user;
 }
