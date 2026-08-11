@@ -1,4 +1,5 @@
-import { currencySpec } from "./currencies";
+import { currencySpec, fxRateInMinorUnits } from "./currencies";
+import type { FeeModel } from "./model";
 import { roundHalfUp } from "./money";
 import {
   ACCOUNT_CURRENCY,
@@ -26,6 +27,15 @@ interface CommonInput {
    * USD's.
    */
   fxBaseRateToUSD?: number;
+  /**
+   * Pre-resolved rate/fixed-fee/spread for this specific payCurrency +
+   * buyerMarket/volume tier, e.g. loaded from the ledger's active
+   * fee_models row (src/lib/db, src/lib/fees/model.ts). Absent, this
+   * builds the same values from schedule.ts + currencies.ts exactly as
+   * before v0.5 — the fallback path if the database is ever unreachable,
+   * and the reason every pre-v0.5 call site and test needs no change.
+   */
+  model?: FeeModel;
 }
 
 export interface SettleInput extends CommonInput {
@@ -43,34 +53,30 @@ export interface QuoteResult {
 }
 
 /**
- * A tier's confidence describes its rate, which is only ever observed in
- * USD. For any other payCurrency, the commercial fee also carries that
- * currency's fixed fee — and only USD's fixed fee is observed
- * (currencies.ts); every other currency's is PayPal's published,
- * unvalidated figure. So an "observed" tier can't honestly stay
- * "observed" once a non-USD fixed fee is involved — it downgrades to
- * "estimated". A tier that's already "unvalidated" stays that way; it
- * can't get worse.
+ * The static schedule's confidence describes its rate, which is only
+ * ever observed in USD. For any other payCurrency, the commercial fee
+ * also carries that currency's fixed fee — and in the static schedule
+ * (currencies.ts), only USD's fixed fee is observed; every other
+ * currency's is PayPal's published, unvalidated figure. So an "observed"
+ * tier can't honestly stay "observed" once a non-USD *static* fixed fee
+ * is involved — it downgrades to "estimated". A tier that's already
+ * "unvalidated" stays that way; it can't get worse.
+ *
+ * This downgrade only applies when falling back to the static schedule
+ * (fixedFeeFromModel is false) — the v0.5 ledger can observe a non-USD
+ * fixed fee directly (src/lib/fees/solve.ts's solveCurrencyFixedFee), in
+ * which case model.confidence already reflects that currency's real
+ * evidence and must not be silently downgraded a second time.
  */
-function confidenceFor(tierConfidence: Confidence, payCurrency: Currency): Confidence {
-  if (payCurrency === ACCOUNT_CURRENCY) {
+function confidenceFor(
+  tierConfidence: Confidence,
+  payCurrency: Currency,
+  fixedFeeFromModel: boolean,
+): Confidence {
+  if (payCurrency === ACCOUNT_CURRENCY || fixedFeeFromModel) {
     return tierConfidence;
   }
   return tierConfidence === "observed" ? "estimated" : tierConfidence;
-}
-
-/**
- * fxBaseRateToUSD is USD per 1 major unit of payCurrency, but the engine
- * operates entirely in minor units. Converting minor-unit amounts
- * directly by that rate is only correct when payCurrency's minor-unit
- * exponent matches USD's (2) — true for every currency here except JPY
- * (exponent 0). This scales the rate so it can be applied directly to
- * minor-unit amounts regardless of exponent.
- */
-function fxRateInMinorUnits(fxBaseRateToUSD: number, payCurrency: Currency): number {
-  const payCurrencyExponent = currencySpec(payCurrency).minorUnitExponent;
-  const usdExponent = currencySpec(ACCOUNT_CURRENCY).minorUnitExponent;
-  return fxBaseRateToUSD * 10 ** (usdExponent - payCurrencyExponent);
 }
 
 /**
@@ -81,12 +87,22 @@ function fxRateInMinorUnits(fxBaseRateToUSD: number, payCurrency: Currency): num
  * on the remainder. See CONSTITUTION.md "Design principles".
  */
 export function settle(input: SettleInput): Breakdown {
-  const { grossPaidMinorUnits, payCurrency, buyerMarket, monthlyVolumeUSDCents, fxBaseRateToUSD } =
-    input;
+  const {
+    grossPaidMinorUnits,
+    payCurrency,
+    buyerMarket,
+    monthlyVolumeUSDCents,
+    fxBaseRateToUSD,
+    model,
+  } = input;
   const tier = selectTier(buyerMarket, monthlyVolumeUSDCents);
-  const fixedFeeMinorUnits = currencySpec(payCurrency).fixedFeeMinorUnits;
+  const rate = model?.rate ?? tier.rate;
+  const rateConfidence = model?.confidence ?? tier.confidence;
+  const fixedFeeMinorUnits = model?.fixedFeeMinorUnits ?? currencySpec(payCurrency).fixedFeeMinorUnits;
+  const spreadRate = model?.fxSpreadRate ?? FX_SPREAD_RATE;
+  const asOf = model?.asOf ?? SCHEDULE_EFFECTIVE_FROM;
 
-  const commercialFeeMinorUnits = roundHalfUp(grossPaidMinorUnits * tier.rate + fixedFeeMinorUnits);
+  const commercialFeeMinorUnits = roundHalfUp(grossPaidMinorUnits * rate + fixedFeeMinorUnits);
   const netInPayCurrencyMinorUnits = grossPaidMinorUnits - commercialFeeMinorUnits;
 
   if (netInPayCurrencyMinorUnits < 0) {
@@ -97,16 +113,23 @@ export function settle(input: SettleInput): Breakdown {
     );
   }
 
-  const fixedFeeIsUnvalidated = payCurrency !== ACCOUNT_CURRENCY;
+  // Checked per-field, not on `model` as a whole: a model can cover this
+  // currency's fixed fee without covering (say) a different market's
+  // rate, or vice versa — see model.ts's FeeModel doc comment.
+  const fixedFeeFromModel = model?.fixedFeeMinorUnits != null;
+  const fixedFeeIsUnvalidated = payCurrency !== ACCOUNT_CURRENCY && !fixedFeeFromModel;
+  const usingLedgerRateOrFee = model?.rate != null || fixedFeeFromModel;
   const commercialFee: FeeLineItem = {
-    label: `Cross-border transaction fee (${(tier.rate * 100).toFixed(3)}% + fixed)`,
+    label: `Cross-border transaction fee (${(rate * 100).toFixed(3)}% + fixed)`,
     minorUnits: commercialFeeMinorUnits,
     currency: payCurrency,
-    confidence: confidenceFor(tier.confidence, payCurrency),
+    confidence: confidenceFor(rateConfidence, payCurrency, fixedFeeFromModel),
     note: fixedFeeIsUnvalidated
       ? `${tier.note ?? ""} The ${payCurrency} fixed fee is PayPal's published figure, ` +
         `unvalidated by observation (CONSTITUTION.md open question #1).`
-      : tier.note,
+      : usingLedgerRateOrFee
+        ? `Rate and fixed fee from the accepted ledger model (dated ${asOf}), not the static schedule.`
+        : tier.note,
   };
 
   if (payCurrency === ACCOUNT_CURRENCY) {
@@ -115,7 +138,7 @@ export function settle(input: SettleInput): Breakdown {
       commercialFee,
       fxConversion: null,
       received: { currency: ACCOUNT_CURRENCY, minorUnits: netInPayCurrencyMinorUnits },
-      ratesAsOf: SCHEDULE_EFFECTIVE_FROM,
+      ratesAsOf: asOf,
     };
   }
 
@@ -128,16 +151,17 @@ export function settle(input: SettleInput): Breakdown {
 
   const fxRate = fxRateInMinorUnits(fxBaseRateToUSD, payCurrency);
   const atBaseRateMinorUnits = roundHalfUp(netInPayCurrencyMinorUnits * fxRate);
-  const receivedMinorUnits = roundHalfUp(netInPayCurrencyMinorUnits * fxRate * (1 - FX_SPREAD_RATE));
+  const receivedMinorUnits = roundHalfUp(netInPayCurrencyMinorUnits * fxRate * (1 - spreadRate));
   const fxConversion: FeeLineItem = {
-    label: `Currency conversion spread (${(FX_SPREAD_RATE * 100).toFixed(1)}% above base rate)`,
+    label: `Currency conversion spread (${(spreadRate * 100).toFixed(1)}% above base rate)`,
     minorUnits: atBaseRateMinorUnits - receivedMinorUnits,
     currency: ACCOUNT_CURRENCY,
-    confidence: "estimated",
-    note:
-      "No observed transaction involves a currency conversion — this line " +
-      "item is PayPal's published 4.0% MEA-region spread applied as-is, " +
-      "not validated against a real payment.",
+    confidence: model?.fxSpreadConfidence ?? "estimated",
+    note: model?.fxSpreadConfidence === "observed"
+      ? `Currency conversion spread from the accepted ledger model (dated ${asOf}).`
+      : "No observed transaction involves a currency conversion — this line " +
+        "item is PayPal's published 4.0% MEA-region spread applied as-is, " +
+        "not validated against a real payment.",
   };
 
   return {
@@ -145,7 +169,7 @@ export function settle(input: SettleInput): Breakdown {
     commercialFee,
     fxConversion,
     received: { currency: ACCOUNT_CURRENCY, minorUnits: receivedMinorUnits },
-    ratesAsOf: SCHEDULE_EFFECTIVE_FROM,
+    ratesAsOf: asOf,
   };
 }
 
@@ -158,10 +182,12 @@ export function settle(input: SettleInput): Breakdown {
  * n, given rounding on both ends.
  */
 export function quote(input: QuoteInput): QuoteResult {
-  const { netTargetCents, payCurrency, buyerMarket, monthlyVolumeUSDCents, fxBaseRateToUSD } =
+  const { netTargetCents, payCurrency, buyerMarket, monthlyVolumeUSDCents, fxBaseRateToUSD, model } =
     input;
   const tier = selectTier(buyerMarket, monthlyVolumeUSDCents);
-  const fixedFeeMinorUnits = currencySpec(payCurrency).fixedFeeMinorUnits;
+  const rate = model?.rate ?? tier.rate;
+  const fixedFeeMinorUnits = model?.fixedFeeMinorUnits ?? currencySpec(payCurrency).fixedFeeMinorUnits;
+  const spreadRate = model?.fxSpreadRate ?? FX_SPREAD_RATE;
 
   let netInPayCurrencyMinorUnits: number;
   if (payCurrency === ACCOUNT_CURRENCY) {
@@ -174,10 +200,10 @@ export function quote(input: QuoteInput): QuoteResult {
       );
     }
     const fxRate = fxRateInMinorUnits(fxBaseRateToUSD, payCurrency);
-    netInPayCurrencyMinorUnits = netTargetCents / (fxRate * (1 - FX_SPREAD_RATE));
+    netInPayCurrencyMinorUnits = netTargetCents / (fxRate * (1 - spreadRate));
   }
 
-  const grossMinorUnitsExact = (netInPayCurrencyMinorUnits + fixedFeeMinorUnits) / (1 - tier.rate);
+  const grossMinorUnitsExact = (netInPayCurrencyMinorUnits + fixedFeeMinorUnits) / (1 - rate);
   // Round up, guarding against floating-point noise landing just under
   // an exact minor-unit boundary (which would otherwise round up unnecessarily).
   const grossMinorUnits = Math.ceil(grossMinorUnitsExact - 1e-9);
@@ -188,6 +214,7 @@ export function quote(input: QuoteInput): QuoteResult {
     buyerMarket,
     monthlyVolumeUSDCents,
     fxBaseRateToUSD,
+    model,
   });
 
   return {

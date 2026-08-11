@@ -7,6 +7,270 @@ the substantive changes.
 
 ## Unreleased
 
+- Diagnosed and documented (not a code bug): magic-link emails from a
+  deployed environment (preview or production) were redirecting to
+  `http://localhost:3000` instead of the actual deployment. The generated
+  `/auth/v1/verify` link's `redirect_to` was a bare origin with no
+  `/auth/confirm` path — the tell that Supabase's GoTrue rejected the
+  app's correctly-computed `emailRedirectTo` (not on the project's Auth →
+  URL Configuration → Redirect URLs allow-list) and silently substituted
+  the Site URL instead of erroring. Not version-controlled, so this is a
+  one-time manual Dashboard step per environment domain, now documented in
+  `CLAUDE.md` § "Supabase" with the exact values for this project
+  (`http://localhost:3000/**`, `https://msk-ppal-calc.vercel.app/**`,
+  `https://msk-ppal-calc-*-shri-kant.vercel.app/**` — the last confirmed
+  against `vercel ls`'s actual preview URL pattern). `src/app/login/actions.ts`
+  gained a comment pointing future debugging at this the moment the same
+  symptom recurs.
+- Fixed a security issue in v0.5's ledger: `/ledger` was gated only on "is
+  this a valid authenticated session," not identity. `signInWithOtp`
+  (`src/app/login/actions.ts`) never set `shouldCreateUser: false`, so any
+  email address self-registered on first request; `handle_new_user`
+  (`supabase/migrations/20260810160000_v0_5_ledger.sql`) unconditionally
+  granted every new account a `profiles` row; and the `transactions`/
+  `fee_models` RLS policies checked only `to authenticated`, e.g.
+  `using ( true )`. Verified live before the fix: as `authenticated` with
+  an arbitrary unknown `sub`, `select count(*) from public.transactions`
+  returned every row. A stranger could read the whole ledger, insert
+  fraudulent transactions to steer the re-derived rate, or insert a
+  `fee_models` row directly — which drives the **public** `/` calculator
+  and every client-facing `/breakdown` link with no session at all.
+  - `supabase/migrations/20260811090000_allowed_accounts.sql` (new) — a
+    zero-policy `allowed_accounts` table (`shrikantkshirsagar29@gmail.com`
+    as admin — the sole pre-existing account, promoted in place —
+    `karendlima3@gmail.com` and `krish.kshir@gmail.com` as user);
+    `handle_new_user` rewritten to `RAISE EXCEPTION` for any other email,
+    aborting GoTrue's transaction before any account or magic-link email
+    is created; `is_ledger_member()`/`is_ledger_admin()` `SECURITY
+    DEFINER` helpers (owned by `postgres`, decoupled from `profiles`' own
+    SELECT policy) used by the rewritten `transactions`/`fee_models`
+    policies in place of `to authenticated`. Deliberately never references
+    `allowed_accounts` from a policy — a policy subquery runs as the
+    invoking role, so that would silently deny everyone. `fee_models`
+    SELECT stays open to `anon` — the public calculator needs it with no
+    login. Applied and verified live: unlisted emails now rejected with no
+    account created and no email sent; an authenticated session with an
+    unlisted `sub` now sees 0 transactions (was all of them); `fee_models`
+    is still readable as `anon`. See `docs/plan-ledger-access-lockdown.html`.
+  - `src/lib/auth/profile.ts` — `getCurrentUser()` had a fail-open bug: a
+    valid JWT with no matching `profiles` row (exactly the state an
+    unlisted email is now left in) fell through to `role: "user"`
+    (`.single()`'s zero-row error was silently discarded). Now fails
+    closed via `.maybeSingle()` and an explicit no-profile case;
+    `requireAdmin` also no longer dead-ends a signed-in non-admin at
+    `/login` — redirects to `/ledger` instead.
+  - `src/app/login/page.tsx` — a distinct `?error=no_access` message (plus
+    a sign-out button) for a signed-in-but-unlisted visitor, since
+    requesting another magic link can't fix that.
+  - `CLAUDE.md` — the "promote to admin in the SQL editor" step is
+    retired; role now comes from `allowed_accounts` automatically.
+- Fixed a follow-up bug in the allow-list fix above, found by a code
+  review run against it before it merged: `handle_new_user()` only fires
+  on `INSERT INTO auth.users` — once per account, ever — so `profiles`
+  (which it wrote `role` into) was a one-time bootstrap seed, not a live
+  allow-list. `delete from allowed_accounts` did **not** revoke an
+  existing account's access (its `profiles` row, and therefore
+  `is_ledger_member()`, survived untouched), and `update allowed_accounts
+  set role=...` never reached an already-registered account — both
+  contradicting this same PR's own `CLAUDE.md` wording ("adding or
+  removing a person is insert/delete on allowed_accounts"). A sync
+  trigger (write-time invalidation on `allowed_accounts`) was designed and
+  rejected: a first draft's bare `UPDATE` instead of an `UPSERT` silently
+  no-ops once a revoke has deleted the `profiles` row, permanently locking
+  out anyone re-added afterward — the identical bug shape, one level down.
+  - `supabase/migrations/20260811120000_derive_ledger_access.sql` (new) —
+    drops `public.profiles` entirely (verified zero FK dependents and
+    exactly one application reader) and derives membership **live** on
+    every call instead: `my_ledger_role()`, a new `SECURITY DEFINER` RPC,
+    joins `allowed_accounts` to `auth.users` fresh each time;
+    `is_ledger_member()`/`is_ledger_admin()` become thin wrappers around
+    it, so the `transactions`/`fee_models` policies referencing them by
+    name are unaffected. `handle_new_user()` simplifies to purely the
+    signup gate — it no longer writes anything, since there's nothing left
+    to materialize. A deploy-time guard fails loudly (rather than silently
+    denying everyone) if `postgres` ever loses read access to
+    `auth.users`. With no cache, there's no cache-invalidation bug left to
+    have — the design also closes a risk the original plan only
+    *accepted*: since authorization now keys off live `auth.users.email`
+    rather than a stable `profiles.id`, an allow-listed user changing
+    their own auth email to an unlisted address self-revokes immediately.
+    Verified live, in rollback-safe transactions, before and after
+    applying for real: deleting an allow-list row now denies the matching
+    session's very next request with no re-login; re-adding then
+    role-updating an account takes effect immediately, with no permanent
+    lockout.
+  - `src/lib/auth/profile.ts` — `resolveUser()` moves off `profiles`
+    entirely, calling the `my_ledger_role()` RPC instead (fixing a second
+    finding: it previously read `profiles` through ordinary RLS, coupling
+    the app's authorization check to `profiles`' own SELECT policy — the
+    exact fragility the SQL-side helpers already existed to avoid — and a
+    query failure there was silently indistinguishable from being signed
+    out; the RPC failure path is now logged). New `hasSession()` export (a
+    `getClaims()`-only check) lets `/login` show a sign-out affordance to
+    a signed-in-but-unlisted visitor who lands there directly, not only
+    via `requireUser`'s `?error=no_access` redirect. `requireAdmin`'s
+    non-admin redirect now carries `?error=not_admin`, surfaced as a
+    banner on `/ledger` (`src/app/ledger/page.tsx`) instead of a silent
+    bounce indistinguishable from the admin-only action having no effect.
+  - `README.md` — corrected two stale claims ("new accounts default to
+    the `user` role"; a manual Supabase-dashboard promotion step) left
+    over from before the allow-list existed, one of them pointing at
+    `CLAUDE.md` prose the original allow-list PR had already deleted.
+  - `docs/plan-ledger-access-lockdown.html` — corrected the "protects the
+    email quota" claim, which only holds for an address that has never
+    signed up: a removed account's `auth.users` row is deliberately left
+    in place, so it can still request magic links (and consume quota)
+    even though it can no longer read or write the ledger.
+- Implemented v0.5: a gated `/ledger` where Ms. K records real PayPal
+  transactions herself, and the app re-derives the commercial rate,
+  per-currency fixed fees, and the FX spread from them — proposing a
+  change only when the data determines one closely enough, otherwise
+  reporting what's missing and keeping the current model. See
+  `docs/plan-v0.5.html` for the full design.
+  - **Finding that shaped the design:** checked before writing the
+    solver whether T1–T3 alone uniquely determine the model, and they
+    don't — six different integer fixed fees ($0.29–$0.34) each admit a
+    rate band reproducing all three transactions exactly, diverging by
+    up to 45¢ at $1,000. `4.625% + $0.31` is the roundest of the six, not
+    the unique solution. This reshaped the acceptance rule: propose a
+    replacement only when every *feasible* model predicts the same fee
+    (within one minor unit) across representative amounts — not when the
+    parameters converge, which they never do on this little data.
+  - `src/lib/fees/solve.ts` (new, pure) — exact interval-arithmetic
+    feasibility solver: `solveCommercial` (rate + USD fixed fee),
+    `solveCurrencyFixedFee` (per non-USD currency, given a known rate and
+    a directly-observed fee — e.g. from PayPal's own displayed fee
+    line), `solveConversionSpread` (the FX spread, global across
+    currencies), `predictionSpread` (the actual uniqueness signal).
+    `fxRateInMinorUnits` moved here from `engine.ts` into
+    `currencies.ts` so both modules share one implementation.
+  - `src/lib/fees/propose.ts` (new, pure) — the confirmed / propose /
+    contradiction / unresolved decision table. Seeded with only T1–T3,
+    correctly reports "confirmed, not yet uniquely determined" and
+    proposes nothing; this is the anchor regression test.
+  - `src/lib/fees/model.ts` (new) — `FeeModel`, every field independently
+    optional; `resolveFeeModel()` maps a DB row to it for one specific
+    `payCurrency`/`buyerMarket` call.
+  - `src/lib/fees/engine.ts` — gained one optional field on
+    `CommonInput`, `model?: FeeModel`. Absent, `settle`/`quote` build the
+    same values from `schedule.ts`/`currencies.ts` exactly as before —
+    every pre-v0.5 test and call site is unmodified, and this is also
+    the fallback path when Supabase is unreachable. Fixed a real bug
+    caught by a new test while wiring this in: `confidenceFor`'s
+    "non-USD fixed fee can't be observed" downgrade was written for the
+    static schedule, where that's true by construction — but the ledger
+    *can* observe a non-USD fixed fee directly, and the downgrade was
+    silently overriding a model-supplied `"observed"` confidence for
+    exactly that case. Now only applies when falling back to the static
+    schedule. Commercial-fee and FX-spread confidence are also now
+    tracked independently (`fee_models.fx_spread_confidence`, a new
+    column) — they previously shared one field, which meant a model that
+    validated a currency's fixed fee would incorrectly show its
+    unrelated, still-unvalidated FX spread as "observed" too.
+  - `src/lib/fx/frankfurter.ts` — `getFxRateToUSD` gained an optional
+    `date` argument, verified against Frankfurter's real
+    `/v2/rates?date=YYYY-MM-DD&base=...&quotes=USD` endpoint (ECB data
+    back to 1948, no quota). A recorded transaction's FX rate must be the
+    rate on its payment date, not today's. The existing no-argument call
+    site and test are unaffected.
+  - **Database:** Supabase (Postgres + Auth) provisioned via
+    `vercel integration add supabase` under the `shri-kant` Vercel team —
+    the only external account this project's data touches, and the only
+    part of the app that isn't stateless. `supabase/migrations/` —
+    `profiles` (role `admin`/`user`, auto-created via an `auth.users`
+    trigger), `transactions` (append-only, `excluded_reason` instead of
+    delete), `fee_models` (append-only, anon-readable so the public
+    calculator and `/breakdown` can read the active model with no
+    session; writes are authenticated-only). Seeded with T1–T3 and the
+    committed v0.4 model — reproducing today's calculator output exactly
+    was the first thing verified.
+  - **Auth:** magic-link sign-in (`@supabase/ssr`, `@supabase/supabase-js`).
+    `src/proxy.ts` — this Next.js version renamed `middleware.ts` to
+    `proxy.ts`; refreshes the session on every request and gates
+    `/ledger*` only, never the whole site, since `/breakdown` links must
+    stay openable with no login. `src/app/auth/confirm/route.ts` handles
+    the magic-link callback via `verifyOtp({type, token_hash})` — checked
+    empirically against the real provisioned project (via the Supabase
+    admin API's `generateLink`, not assumed from docs alone) rather than
+    two contradicting patterns surfaced by research (a `token_hash`-based
+    doc and a PKCE-`code`-based one).
+  - **Accounts:** self-service by design — either account can record a
+    transaction and accept a proposed model, so accepting a fix never
+    waits on the maintainer. Admin-only: excluding/correcting a
+    transaction, editing the seeded T1–T3 rows, reverting to a prior
+    accepted model (re-inserts its figures as a fresh row — `fee_models`
+    stays append-only, history is never mutated).
+  - `src/app/page.tsx` split into a thin Server Component (fetches the
+    active model once) and `src/components/calculator.tsx` (the existing
+    client-side interactive calculator, now taking `activeModel` as a
+    prop) — the fetch happens server-side rather than adding a second
+    client-side round trip alongside the existing FX fetch. `/` is now
+    server-rendered per request instead of static, since it reads the
+    live model.
+  - `src/app/breakdown/page.tsx` — reads the active model the same way.
+    This gives `hasFrozenDrift()` (from the share-link drift fix below) a
+    real case it was only built in anticipation of: a link created
+    before an accepted model change now genuinely goes stale, and the
+    existing machinery already catches it correctly.
+  - End-to-end verified against the real provisioned database and a
+    throwaway test account (created and fully deleted via the Supabase
+    admin API afterward — 0 users, 0 profiles, exactly T1–T3 and the one
+    seed model remain): sign-in redirect gate, recording a transaction,
+    the contradiction verdict on an inconsistent one, excluding it and
+    watching the model reconfirm, a genuine resolution triggering a
+    propose verdict, accepting it, and an admin reverting to the prior
+    model — all through the real UI, not mocked.
+- Fixed a set of bugs in v0.5's ledger found by a code review run against
+  it before it was pushed further, the most serious of which repeats the
+  share-link "Trust boundary" mistake below in a new place: `acceptProposalAction`/
+  `revertToModelAction` (`src/app/ledger/actions.ts`) inserted the
+  rate/fixedFee/fxSpreadRate straight from hidden form fields into the
+  live, anon-readable `fee_models` table with no server-side check that
+  those numbers matched anything real. A Next.js server action is a
+  public POST endpoint — any caller could post arbitrary figures and set
+  the model every public `settle()`/`quote()` call reads, not just the
+  values the status panel actually rendered.
+  - `acceptProposalAction` now takes no client input at all: it
+    recomputes `computeLedgerStatus` from the real, current transactions
+    (`src/app/ledger/status.ts`, new — shared with the ledger page so
+    both read the same computation) and only inserts if that fresh
+    result is still `"propose"`, using its `proposedModel` and the
+    observation ids that produced it (`CommercialVerdict`'s `"propose"`
+    case in `src/lib/fees/propose.ts` now carries `sourceTransactionIds`
+    for this).
+  - `revertToModelAction` now takes only a target row `id` from the form;
+    `getFeeModelById` (`src/lib/db/fee-models.ts`, new) looks up that
+    row's real rate/fixedFee/spread/per-currency fees/confidence rather
+    than trusting them from hidden fields.
+  - `acceptFeeModel` (`src/lib/db/fee-models.ts`) was silently dropping
+    `per_currency_fixed_fees` and `fx_spread_confidence` on every insert
+    it made — every accept or revert reset a currency's validated fixed
+    fees back to empty and reset the spread's confidence to `"estimated"`
+    even after it had genuinely been observed. Both accept and revert now
+    carry these forward explicitly.
+  - `computeLedgerStatus` (`src/lib/fees/ledger-status.ts`) fell back to
+    the USD fixed fee (`current.fixedFeeMinorUnits`) for any non-USD
+    currency with no per-currency entry yet, rather than that currency's
+    own published fixed fee — e.g. treating an HUF transaction as if its
+    fixed fee were 31 minor units instead of 9,000. Now falls back to
+    `currencySpec(payCurrency).fixedFeeMinorUnits`.
+  - `settle()` (`src/lib/fees/engine.ts`) labeled the FX-spread line
+    "from the accepted ledger model" whenever any ledger model was
+    active at all, contradicting the `"estimated"` confidence badge
+    rendered right next to it the moment that model's spread was still
+    just the carried-forward default. Now gated on
+    `fxSpreadConfidence === "observed"`, matching the badge.
+  - `recordTransactionAction` silently turned a non-numeric "PayPal's
+    exchange rate" field into `null` via `Number(...)` → `NaN` →
+    Supabase serializing `NaN` as `null`, with no error shown. Now
+    rejected with a validation error, same as the form's other fields.
+  - The six copies of the `getCurrentUser()`-then-redirect-if-unauthorized
+    guard across `src/app/ledger/` collapsed into `requireUser()`/
+    `requireAdmin()` (`src/lib/auth/profile.ts`, new) — no behavior
+    change, just one place to get it right.
+  - `CLAUDE.md` corrected: it described an admin "correct a transaction,
+    edit the seeded T1–T3 rows" capability that was never built — only
+    exclude exists.
 - Fixed a security regression in the share-link staleness fix below, found
   by a follow-up code review run against it before it was pushed further.
   The staleness fix's first version rendered the frozen `fee`/`net`/`spread`

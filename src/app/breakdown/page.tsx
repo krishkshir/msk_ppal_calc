@@ -4,9 +4,11 @@ import { cache } from "react";
 import { FeeBreakdown } from "@/components/fee-breakdown";
 import { describeCalculationError } from "@/lib/fees/errors";
 import { settle } from "@/lib/fees/engine";
+import { resolveFeeModel, type ActiveFeeModelRow } from "@/lib/fees/model";
 import { SCHEDULE_EFFECTIVE_FROM } from "@/lib/fees/schedule";
 import type { Breakdown } from "@/lib/fees/types";
 import { formatMoney } from "@/lib/format";
+import { getActiveFeeModel } from "@/lib/db/fee-models";
 import { decodeBreakdownParams, type SharedBreakdown } from "@/lib/share/breakdown-link";
 import { hasFrozenDrift } from "@/lib/share/drift";
 
@@ -19,8 +21,9 @@ type Resolved =
 
 // generateMetadata and the page component are both invoked for the same
 // request; cache() dedupes the decode+settle() work between them instead
-// of running it twice.
-const resolve = cache((raw: SearchParams): Resolved => {
+// of running it twice. activeModel is a parameter (not a second internal
+// fetch) so both callers below share the one getActiveFeeModel() read.
+const resolve = cache((raw: SearchParams, activeModel: ActiveFeeModelRow | null): Resolved => {
   const decoded = decodeBreakdownParams(raw);
   if (!decoded.ok) return { status: "decode-error", reason: decoded.reason };
 
@@ -34,12 +37,17 @@ const resolve = cache((raw: SearchParams): Resolved => {
       buyerMarket,
       monthlyVolumeUSDCents: 0,
       fxBaseRateToUSD: fx?.rate,
+      model: resolveFeeModel(activeModel, buyerMarket, payCurrency),
     });
 
     // frozen (fee/net/spread) is unsigned and attacker-editable, so it's
     // used only as a signal for whether to warn — the displayed
     // breakdown is always this genuine recomputation, never frozen's
     // numbers. See docs/plan-share-link-drift.html "Trust boundary".
+    // A ledger model accepted after this link was created is exactly the
+    // kind of drift this check now also catches (docs/plan-v0.5.html
+    // "Engine change") — the recomputation above already reflects it via
+    // resolveFeeModel, same as any other post-link rate change.
     const drifted = frozen != null && hasFrozenDrift(breakdown, frozen);
     return { status: "ok", breakdown, shared, drifted };
   } catch (error) {
@@ -50,7 +58,8 @@ const resolve = cache((raw: SearchParams): Resolved => {
 export async function generateMetadata(
   props: PageProps<"/breakdown">,
 ): Promise<Metadata> {
-  const resolved = resolve(await props.searchParams);
+  const [searchParams, activeModel] = await Promise.all([props.searchParams, getActiveFeeModel()]);
+  const resolved = resolve(searchParams, activeModel);
   if (resolved.status !== "ok") {
     return { title: "Payment breakdown — msk_ppal_calc" };
   }
@@ -63,7 +72,8 @@ export async function generateMetadata(
 }
 
 export default async function BreakdownPage(props: PageProps<"/breakdown">) {
-  const resolved = resolve(await props.searchParams);
+  const [searchParams, activeModel] = await Promise.all([props.searchParams, getActiveFeeModel()]);
+  const resolved = resolve(searchParams, activeModel);
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-16">
