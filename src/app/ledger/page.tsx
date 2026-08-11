@@ -29,9 +29,13 @@ export default async function LedgerPage(props: PageProps<"/ledger">) {
     <main className="mx-auto max-w-3xl px-6 py-16">
       <div className="flex items-center justify-between">
         <div>
-          <p className="font-mono text-xs tracking-[0.12em] text-caption uppercase">
-            msk_ppal_calc · ledger
-          </p>
+          {/* Mirrors the "Ledger →" link on the calculator homepage (src/components/calculator.tsx) — this is the only way back, since /ledger has no other nav. */}
+          <Link
+            href="/"
+            className="font-mono text-xs tracking-[0.12em] text-teal uppercase underline underline-offset-4 hover:text-teal/80"
+          >
+            ← msk_ppal_calc
+          </Link>
           <h1 className="mt-2 font-display text-2xl text-ink">
             Signed in as {user.email ?? user.id} ({user.role})
           </h1>
