@@ -7,6 +7,25 @@ the substantive changes.
 
 ## Unreleased
 
+- Drafted `docs/plan-v0.6.html`: a proposal to render the rates and fees
+  the engine actually uses — the commercial rate per buyer-market tier,
+  the fixed fee for each of the 23 currencies, and the FX spread — on
+  `/ledger`, labeled with exactly where each figure comes from (named,
+  e.g. "PayPal — Business fees (AE)" or "designhill.com PayPal fee
+  calculator," vs. computed by this app) and the date it took effect.
+  `ScheduleEntry` and `CurrencySpec` already carry a `sourceUrl` and an
+  `effectiveFrom` on every row, but neither reaches any UI today — this
+  plan is mostly about finally rendering data that already exists, plus
+  a new `FeeSource` registry (`src/lib/fees/sources.ts`) that separates a
+  figure's *origin* from its existing, orthogonal `Confidence` rating.
+  New: both `user` and `admin` accounts would be able to type in a
+  corrected rate or fee as a dated manual override, which — per the
+  user's explicit direction — takes precedence over both the ledger's
+  own solver-derived model and the static schedule, applying immediately
+  to the public calculator and every new `/breakdown` link, with a
+  fourth `Confidence` value (`"manual"`) and a status-panel warning when
+  an override is masking what the recorded transactions would otherwise
+  determine. See `docs/plan-v0.6.html`.
 - Diagnosed and documented (not a code bug): magic-link emails from a
   deployed environment (preview or production) were redirecting to
   `http://localhost:3000` instead of the actual deployment. The generated

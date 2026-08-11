@@ -1,5 +1,7 @@
-import type { Confidence, Currency } from "./currencies";
+import type { Confidence, Currency, DisplayConfidence } from "./currencies";
 import type { BuyerMarket } from "./markets";
+import { findOverride, type ActiveOverrides, type OverrideTarget } from "./overrides";
+import { selectTier } from "./schedule";
 
 /**
  * A partial rate/fixed-fee/spread override for one specific payCurrency +
@@ -23,8 +25,8 @@ export interface FeeModel {
   rate?: number;
   fixedFeeMinorUnits?: number;
   fxSpreadRate?: number;
-  confidence?: Confidence;
-  fxSpreadConfidence?: Confidence;
+  confidence?: DisplayConfidence;
+  fxSpreadConfidence?: DisplayConfidence;
   /** Version identifier for this model, e.g. its acceptance date — becomes Breakdown.ratesAsOf. */
   asOf?: string;
 }
@@ -41,44 +43,103 @@ export interface ActiveFeeModelRow {
 }
 
 /**
- * Resolves the DB-accepted model into engine.ts's FeeModel shape for one
- * specific payCurrency + buyerMarket call, or undefined to fall back
- * entirely to the static schedule.ts/currencies.ts constants (no active
- * row, e.g. the database is unreachable).
+ * A ledger-accepted rate only ever reflects the OTHER-market ground
+ * truth (docs/CONSTITUTION.md: "her practical rate is always the
+ * $0-$3,000 tier") — UAE and EEA/UK keep the static, unvalidated
+ * schedule.ts rates regardless of what the ledger has accepted. Shared
+ * with src/lib/fees/rate-rows.ts so the rates table shows exactly the
+ * same precedence the engine actually applies.
+ */
+export function ledgerRateAppliesToMarket(buyerMarket: BuyerMarket): boolean {
+  return buyerMarket === "OTHER";
+}
+
+function laterDate(a: string | undefined, b: string | undefined): string | undefined {
+  if (a == null) return b;
+  if (b == null) return a;
+  return a > b ? a : b;
+}
+
+/**
+ * Resolves the DB-accepted model plus any manual overrides into
+ * engine.ts's FeeModel shape for one specific payCurrency + buyerMarket
+ * call, or undefined only when neither an active ledger model nor any
+ * relevant override exists — the fall-back-entirely-to-static-constants
+ * signal (no database row, no override, e.g. the database is
+ * unreachable).
  *
- * `row.rate` only ever reflects the OTHER-market $0-$3,000 tier — the
- * only tier with any ground truth (docs/CONSTITUTION.md: "her practical
- * rate is always the $0-$3,000 tier") — so it's applied only when
- * buyerMarket === "OTHER"; UAE and EEA/UK keep the static, unvalidated
- * schedule.ts rates regardless of what the ledger has accepted. The
- * fixed fee is looked up by currency, independent of market, matching
- * how currencies.ts already works. The FX spread is a single figure
- * applied uniformly whenever a payment converts currency, regardless of
- * market or which currency solved it.
+ * Precedence, highest wins: a manual override (docs/plan-v0.6.html)
+ * beats the ledger-accepted model, which beats engine.ts's own static
+ * schedule.ts/currencies.ts fallback. `overrides` defaults to `[]` so
+ * every pre-v0.6 call site (and every pre-v0.6 test) keeps behaving
+ * exactly as before.
+ *
+ * The fixed fee is looked up by currency, independent of market,
+ * matching how currencies.ts already works. The FX spread is a single
+ * figure applied uniformly whenever a payment converts currency,
+ * regardless of market or which currency solved it.
  *
  * monthlyVolumeUSDCents is hardcoded to 0 here, matching every existing
  * call site in this app (src/app/page.tsx, src/app/breakdown/page.tsx) —
- * per CLAUDE.md, Ms. K's practical tier never varies by volume.
+ * per CLAUDE.md, Ms. K's practical tier never varies by volume. The rate
+ * override's target key uses that same tier (selectTier(buyerMarket, 0)),
+ * so it's scoped to the tier Ms. K is actually ever quoted against.
  */
 export function resolveFeeModel(
   row: ActiveFeeModelRow | null,
   buyerMarket: BuyerMarket,
   payCurrency: Currency,
+  overrides: ActiveOverrides = [],
 ): FeeModel | undefined {
-  if (!row) {
+  const rateTarget: OverrideTarget = {
+    kind: "rate",
+    buyerMarket,
+    minMonthlyVolumeUSDCents: selectTier(buyerMarket, 0).minMonthlyVolumeUSDCents,
+  };
+  const fixedFeeTarget: OverrideTarget = { kind: "fixedFee", currency: payCurrency };
+  const fxSpreadTarget: OverrideTarget = { kind: "fxSpread" };
+
+  const rateOverride = findOverride(overrides, rateTarget);
+  const fixedFeeOverride = findOverride(overrides, fixedFeeTarget);
+  const fxSpreadOverride = findOverride(overrides, fxSpreadTarget);
+
+  const ledgerRate = row && ledgerRateAppliesToMarket(buyerMarket) ? row.rate : undefined;
+  const ledgerFixedFeeMinorUnits = row
+    ? payCurrency === "USD"
+      ? row.fixedFeeMinorUnits
+      : row.perCurrencyFixedFees[payCurrency]
+    : undefined;
+
+  const rate = rateOverride?.value ?? ledgerRate;
+  const fixedFeeMinorUnits = fixedFeeOverride?.value ?? ledgerFixedFeeMinorUnits;
+  const fxSpreadRate = fxSpreadOverride?.value ?? row?.fxSpreadRate;
+
+  if (rate === undefined && fixedFeeMinorUnits === undefined && fxSpreadRate === undefined) {
     return undefined;
   }
 
-  const rate = buyerMarket === "OTHER" ? row.rate : undefined;
-  const fixedFeeMinorUnits =
-    payCurrency === "USD" ? row.fixedFeeMinorUnits : row.perCurrencyFixedFees[payCurrency];
+  // A manual override on either the rate or this currency's fixed fee
+  // makes the whole commercial-fee confidence "manual" — engine.ts's
+  // commercialFee badge is a single figure covering both, and leaving it
+  // at whatever the static/ledger confidence would have been risks
+  // understating (an "unvalidated" badge on a figure someone just
+  // corrected) or overstating (a stale "observed" badge) what's actually
+  // known now.
+  const confidence: DisplayConfidence | undefined =
+    rateOverride || fixedFeeOverride
+      ? "manual"
+      : rate !== undefined && row
+        ? row.confidence
+        : undefined;
+  const fxSpreadConfidence: DisplayConfidence | undefined = fxSpreadOverride
+    ? "manual"
+    : row?.fxSpreadConfidence;
 
-  return {
-    rate,
-    fixedFeeMinorUnits,
-    fxSpreadRate: row.fxSpreadRate,
-    confidence: rate !== undefined ? row.confidence : undefined,
-    fxSpreadConfidence: row.fxSpreadConfidence,
-    asOf: row.asOf,
-  };
+  const asOf = [
+    rateOverride?.effectiveFrom,
+    fixedFeeOverride?.effectiveFrom,
+    fxSpreadOverride?.effectiveFrom,
+  ].reduce<string | undefined>(laterDate, row?.asOf);
+
+  return { rate, fixedFeeMinorUnits, fxSpreadRate, confidence, fxSpreadConfidence, asOf };
 }

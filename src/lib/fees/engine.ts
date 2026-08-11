@@ -7,7 +7,7 @@ import {
   SCHEDULE_EFFECTIVE_FROM,
   selectTier,
 } from "./schedule";
-import type { BuyerMarket, Breakdown, Confidence, Currency, FeeLineItem, Money } from "./types";
+import type { BuyerMarket, Breakdown, Currency, DisplayConfidence, FeeLineItem, Money } from "./types";
 
 interface CommonInput {
   payCurrency: Currency;
@@ -69,10 +69,10 @@ export interface QuoteResult {
  * evidence and must not be silently downgraded a second time.
  */
 function confidenceFor(
-  tierConfidence: Confidence,
+  tierConfidence: DisplayConfidence,
   payCurrency: Currency,
   fixedFeeFromModel: boolean,
-): Confidence {
+): DisplayConfidence {
   if (payCurrency === ACCOUNT_CURRENCY || fixedFeeFromModel) {
     return tierConfidence;
   }

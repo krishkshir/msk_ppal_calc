@@ -115,6 +115,19 @@ renamed `middleware.ts` to `proxy.ts`) gates `/ledger*` only — `/` and
 login. See `docs/plan-v0.5.html` for the implementation plan this was
 built from, including the full feasible-fixed-fee table.
 
+v0.6 is **proposed, not yet implemented**: a rates-and-fees table on
+`/ledger` rendering every commercial-rate tier, per-currency fixed fee,
+and the FX spread with a named source (e.g. "PayPal — Business fees
+(AE)" vs. "Computed by this app") and effective date — data
+`ScheduleEntry`/`CurrencySpec` already carry (`sourceUrl`,
+`effectiveFrom`) but that reaches no UI today. Also proposed: a manual
+override, settable by either `user` or `admin`, on any rate or fee,
+which would take precedence over both the ledger-derived model and the
+static schedule, carry a person-supplied effective-from date plus an
+app-stamped set-by/set-on, and — on conflict with what the ledger's
+solver later determines — win, with a visible masking warning rather
+than a silent change. See `docs/plan-v0.6.html` for the full design.
+
 Commands (via `pnpm`):
 
 - `pnpm install` — install dependencies
@@ -365,6 +378,16 @@ the allow-list itself is never referenced from an RLS policy directly (a
 zero-policy table referenced from another table's policy subquery
 evaluates to "deny everyone", silently) — it's read only inside
 `SECURITY DEFINER` helpers.
+
+v0.6 (proposed, not yet implemented — see `docs/plan-v0.6.html`) adds an
+append-only `fee_overrides` table for manually-corrected rates and fees.
+Its SELECT policy is public (anon-readable, matching `fee_models`, since
+the public calculator needs to read an active override with no login)
+but **column-restricted**: `set_by_email` is only granted to
+`authenticated`, not `anon`, via a Postgres column-level grant
+underneath the row-level policy — RLS alone can't hide one column of an
+otherwise-readable row, so a ledger member's email must not leak through
+the public calculator's read path.
 
 **Magic-link emails silently redirect to `http://localhost:3000` from any
 deployed environment (preview or production) unless the Supabase

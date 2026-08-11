@@ -396,20 +396,22 @@ describe("settle — optional model override (v0.5 ledger)", () => {
 });
 
 describe("schedule metadata", () => {
-  it("every schedule entry carries effectiveFrom, sourceUrl, and confidence", async () => {
+  it("every schedule entry carries effectiveFrom, a resolvable sourceId, and confidence", async () => {
     const { SCHEDULE } = await import("./schedule");
+    const { feeSource } = await import("./sources");
     for (const entry of SCHEDULE) {
       expect(entry.effectiveFrom).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-      expect(entry.sourceUrl.length).toBeGreaterThan(0);
+      expect(feeSource(entry.sourceId).label.length).toBeGreaterThan(0);
       expect(["observed", "estimated", "unvalidated"]).toContain(entry.confidence);
     }
   });
 
-  it("every currency entry carries effectiveFrom, sourceUrl, and confidence", async () => {
+  it("every currency entry carries effectiveFrom, a resolvable sourceId, and confidence", async () => {
     const { CURRENCIES } = await import("./currencies");
+    const { feeSource } = await import("./sources");
     for (const entry of CURRENCIES) {
       expect(entry.effectiveFrom).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-      expect(entry.sourceUrl.length).toBeGreaterThan(0);
+      expect(feeSource(entry.sourceId).label.length).toBeGreaterThan(0);
       expect(["observed", "estimated", "unvalidated"]).toContain(entry.confidence);
     }
   });

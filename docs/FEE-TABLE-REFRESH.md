@@ -60,7 +60,18 @@ Append it, don't replace the existing table:
 4. If the reconciled figure changes an existing constant, update it and
    flip the relevant `confidence` to `"observed"`.
 
-## 4. Bump the review date
+## 4. Check standing manual overrides
+
+If v0.6's rates-and-fees table (`docs/plan-v0.6.html`) is implemented:
+review every active row in `fee_overrides` on `/ledger` against what you
+just re-read from PayPal's pages. An override that now matches the
+published figure again should be cleared, not left standing — a
+stale-but-matching override still shows as `"manual"` confidence and
+masks the real source. An override that still diverges (a genuine,
+ongoing correction) should stay, but confirm its `note` still explains
+why.
+
+## 5. Bump the review date
 
 Once the diff is done (whether or not anything changed), update
 `SCHEDULE_LAST_REVIEWED_ON` in `src/lib/fees/schedule.ts` to today's
@@ -68,7 +79,7 @@ date. This is what clears the staleness warning — it must be bumped
 even on a review that finds no changes, since it records that a human
 looked, not that a number moved.
 
-## 5. Update the docs in the same change
+## 6. Update the docs in the same change
 
 Per `CLAUDE.md` § "Before pushing to remote": update
 `docs/CONSTITUTION.md`, `docs/plan.html`, `docs/CHANGELOG.md`, and

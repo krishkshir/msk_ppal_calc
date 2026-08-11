@@ -1,5 +1,6 @@
 import type { Confidence } from "./currencies";
 import type { BuyerMarket } from "./markets";
+import type { FeeSourceId } from "./sources";
 
 /** Ms. K's PayPal account is UAE-registered, USD-denominated. */
 export const ACCOUNT_CURRENCY = "USD" as const;
@@ -13,6 +14,9 @@ export const ACCOUNT_CURRENCY = "USD" as const;
  * line item the engine produces is flagged "estimated".
  */
 export const FX_SPREAD_RATE = 0.04;
+
+/** Where FX_SPREAD_RATE comes from, for the rates table (src/lib/fees/rate-rows.ts). */
+export const FX_SPREAD_SOURCE_ID: FeeSourceId = "paypalMerchantFees";
 
 /** Last-updated date on PayPal's published UAE merchant fee page. */
 export const SCHEDULE_EFFECTIVE_FROM = "2026-05-28";
@@ -46,11 +50,6 @@ export function isScheduleReviewOverdue(today: Date): boolean {
   return daysSinceReview > REVIEW_INTERVAL_DAYS;
 }
 
-const PAYPAL_SOURCE_URL = "https://www.paypal.com/ae/webapps/mpp/merchant-fees";
-const DESIGNHILL_SOURCE_URL = "https://www.designhill.com/tools/paypal-fee-calculator";
-const OBSERVED_TRANSACTIONS_SOURCE =
-  "../docs/CONSTITUTION.md#observed-transactions-ground-truth";
-
 export interface ScheduleEntry {
   buyerMarket: BuyerMarket;
   /** Inclusive lower bound, trailing monthly volume in USD cents. */
@@ -60,7 +59,7 @@ export interface ScheduleEntry {
   rate: number;
   confidence: Confidence;
   effectiveFrom: string;
-  sourceUrl: string;
+  sourceId: FeeSourceId;
   note?: string;
 }
 
@@ -87,7 +86,7 @@ export const SCHEDULE: ScheduleEntry[] = [
     rate: 0.034,
     confidence: "unvalidated",
     effectiveFrom: SCHEDULE_EFFECTIVE_FROM,
-    sourceUrl: PAYPAL_SOURCE_URL,
+    sourceId: "paypalMerchantFees",
     note: "Domestic UAE rate as published. No observed domestic transaction.",
   },
   {
@@ -97,7 +96,7 @@ export const SCHEDULE: ScheduleEntry[] = [
     rate: 0.0469,
     confidence: "unvalidated",
     effectiveFrom: SCHEDULE_EFFECTIVE_FROM,
-    sourceUrl: PAYPAL_SOURCE_URL,
+    sourceId: "paypalMerchantFees",
     note: "EEA/UK rate as published. No observed EEA/UK transaction.",
   },
   {
@@ -107,7 +106,7 @@ export const SCHEDULE: ScheduleEntry[] = [
     rate: 0.04625,
     confidence: "observed",
     effectiveFrom: SCHEDULE_EFFECTIVE_FROM,
-    sourceUrl: OBSERVED_TRANSACTIONS_SOURCE,
+    sourceId: "observedTransactions",
     note:
       "PayPal publishes 4.40% for this tier; three real transactions " +
       "(T1-T3) refute it — 4.625% is the observed rate. See " +
@@ -120,7 +119,7 @@ export const SCHEDULE: ScheduleEntry[] = [
     rate: 0.039,
     confidence: "unvalidated",
     effectiveFrom: SCHEDULE_EFFECTIVE_FROM,
-    sourceUrl: DESIGNHILL_SOURCE_URL,
+    sourceId: "designhillCalculator",
     note: UNVALIDATED_TIER_NOTE,
   },
   {
@@ -130,7 +129,7 @@ export const SCHEDULE: ScheduleEntry[] = [
     rate: 0.037,
     confidence: "unvalidated",
     effectiveFrom: SCHEDULE_EFFECTIVE_FROM,
-    sourceUrl: DESIGNHILL_SOURCE_URL,
+    sourceId: "designhillCalculator",
     note: UNVALIDATED_TIER_NOTE,
   },
   {
@@ -140,7 +139,7 @@ export const SCHEDULE: ScheduleEntry[] = [
     rate: 0.034,
     confidence: "unvalidated",
     effectiveFrom: SCHEDULE_EFFECTIVE_FROM,
-    sourceUrl: DESIGNHILL_SOURCE_URL,
+    sourceId: "designhillCalculator",
     note: UNVALIDATED_TIER_NOTE,
   },
 ];

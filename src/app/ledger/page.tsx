@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { RatesTable } from "@/components/ledger/rates-table";
 import { StatusPanel } from "@/components/ledger/status-panel";
 import { signOut } from "@/lib/auth/actions";
 import { requireUser } from "@/lib/auth/profile";
 import { listFeeModelHistory } from "@/lib/db/fee-models";
 import { formatMoney } from "@/lib/format";
+import { buildRateRows } from "@/lib/fees/rate-rows";
 import { excludeTransactionAction, revertToModelAction } from "./actions";
 import { loadLedgerStatus } from "./status";
 
@@ -19,11 +21,18 @@ export default async function LedgerPage(props: PageProps<"/ledger">) {
   // rather than a silent redirect indistinguishable from the action having
   // simply had no effect.
   const notAdmin = searchParams.error === "not_admin";
+  // setOverrideAction/clearOverrideAction (./actions.ts) redirect here
+  // with an arbitrary, already-human-readable message on failure — unlike
+  // not_admin, there's no fixed set of override error strings to switch
+  // on, so this renders whatever came back.
+  const overrideError =
+    !notAdmin && typeof searchParams.error === "string" ? searchParams.error : null;
 
-  const [{ transactions, status }, history] = await Promise.all([
+  const [{ transactions, activeModel, overrides, status }, history] = await Promise.all([
     loadLedgerStatus(),
     user.role === "admin" ? listFeeModelHistory() : Promise.resolve([]),
   ]);
+  const rateRows = buildRateRows(activeModel, overrides);
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-16">
@@ -56,6 +65,12 @@ export default async function LedgerPage(props: PageProps<"/ledger">) {
         </p>
       ) : null}
 
+      {overrideError ? (
+        <p className="mt-6 rounded-md border border-oxide/60 bg-oxide/10 px-3 py-2 text-sm text-oxide">
+          {overrideError}
+        </p>
+      ) : null}
+
       <p className="mt-6 text-sm">
         <Link href="/ledger/new" className="text-teal underline">
           Record a transaction
@@ -63,7 +78,18 @@ export default async function LedgerPage(props: PageProps<"/ledger">) {
       </p>
 
       <div className="mt-8">
-        <StatusPanel status={status} showDiagnostics={user.role === "admin"} />
+        <StatusPanel status={status} overrides={overrides} showDiagnostics={user.role === "admin"} />
+      </div>
+
+      <div className="mt-8">
+        <p className="font-mono text-xs tracking-[0.1em] text-caption uppercase">Rates &amp; fees</p>
+        <p className="mt-1 max-w-lg text-xs text-caption">
+          Every figure the calculator actually uses, where it comes from, and when it took effect.
+          Either account can type in a correction below as a dated override.
+        </p>
+        <div className="mt-3">
+          <RatesTable rows={rateRows} />
+        </div>
       </div>
 
       <div className="mt-10">

@@ -9,6 +9,8 @@ import { SCHEDULE_EFFECTIVE_FROM } from "@/lib/fees/schedule";
 import type { Breakdown } from "@/lib/fees/types";
 import { formatMoney } from "@/lib/format";
 import { getActiveFeeModel } from "@/lib/db/fee-models";
+import { getActiveOverrides } from "@/lib/db/fee-overrides";
+import type { ActiveOverrides } from "@/lib/fees/overrides";
 import { decodeBreakdownParams, type SharedBreakdown } from "@/lib/share/breakdown-link";
 import { hasFrozenDrift } from "@/lib/share/drift";
 
@@ -21,45 +23,52 @@ type Resolved =
 
 // generateMetadata and the page component are both invoked for the same
 // request; cache() dedupes the decode+settle() work between them instead
-// of running it twice. activeModel is a parameter (not a second internal
-// fetch) so both callers below share the one getActiveFeeModel() read.
-const resolve = cache((raw: SearchParams, activeModel: ActiveFeeModelRow | null): Resolved => {
-  const decoded = decodeBreakdownParams(raw);
-  if (!decoded.ok) return { status: "decode-error", reason: decoded.reason };
+// of running it twice. activeModel/overrides are parameters (not a second
+// internal fetch) so both callers below share the one getActiveFeeModel()/
+// getActiveOverrides() read.
+const resolve = cache(
+  (raw: SearchParams, activeModel: ActiveFeeModelRow | null, overrides: ActiveOverrides): Resolved => {
+    const decoded = decodeBreakdownParams(raw);
+    if (!decoded.ok) return { status: "decode-error", reason: decoded.reason };
 
-  const shared = decoded.value;
-  const { grossPaidMinorUnits, payCurrency, buyerMarket, fx, frozen } = shared;
+    const shared = decoded.value;
+    const { grossPaidMinorUnits, payCurrency, buyerMarket, fx, frozen } = shared;
 
-  try {
-    const breakdown = settle({
-      grossPaidMinorUnits,
-      payCurrency,
-      buyerMarket,
-      monthlyVolumeUSDCents: 0,
-      fxBaseRateToUSD: fx?.rate,
-      model: resolveFeeModel(activeModel, buyerMarket, payCurrency),
-    });
+    try {
+      const breakdown = settle({
+        grossPaidMinorUnits,
+        payCurrency,
+        buyerMarket,
+        monthlyVolumeUSDCents: 0,
+        fxBaseRateToUSD: fx?.rate,
+        model: resolveFeeModel(activeModel, buyerMarket, payCurrency, overrides),
+      });
 
-    // frozen (fee/net/spread) is unsigned and attacker-editable, so it's
-    // used only as a signal for whether to warn — the displayed
-    // breakdown is always this genuine recomputation, never frozen's
-    // numbers. See docs/plan-share-link-drift.html "Trust boundary".
-    // A ledger model accepted after this link was created is exactly the
-    // kind of drift this check now also catches (docs/plan-v0.5.html
-    // "Engine change") — the recomputation above already reflects it via
-    // resolveFeeModel, same as any other post-link rate change.
-    const drifted = frozen != null && hasFrozenDrift(breakdown, frozen);
-    return { status: "ok", breakdown, shared, drifted };
-  } catch (error) {
-    return { status: "engine-error", message: describeCalculationError(error) };
-  }
-});
+      // frozen (fee/net/spread) is unsigned and attacker-editable, so it's
+      // used only as a signal for whether to warn — the displayed
+      // breakdown is always this genuine recomputation, never frozen's
+      // numbers. See docs/plan-share-link-drift.html "Trust boundary".
+      // A ledger model accepted after this link was created is exactly the
+      // kind of drift this check now also catches (docs/plan-v0.5.html
+      // "Engine change") — the recomputation above already reflects it via
+      // resolveFeeModel, same as any other post-link rate change.
+      const drifted = frozen != null && hasFrozenDrift(breakdown, frozen);
+      return { status: "ok", breakdown, shared, drifted };
+    } catch (error) {
+      return { status: "engine-error", message: describeCalculationError(error) };
+    }
+  },
+);
 
 export async function generateMetadata(
   props: PageProps<"/breakdown">,
 ): Promise<Metadata> {
-  const [searchParams, activeModel] = await Promise.all([props.searchParams, getActiveFeeModel()]);
-  const resolved = resolve(searchParams, activeModel);
+  const [searchParams, activeModel, overrides] = await Promise.all([
+    props.searchParams,
+    getActiveFeeModel(),
+    getActiveOverrides(),
+  ]);
+  const resolved = resolve(searchParams, activeModel, overrides);
   if (resolved.status !== "ok") {
     return { title: "Payment breakdown — msk_ppal_calc" };
   }
@@ -72,8 +81,12 @@ export async function generateMetadata(
 }
 
 export default async function BreakdownPage(props: PageProps<"/breakdown">) {
-  const [searchParams, activeModel] = await Promise.all([props.searchParams, getActiveFeeModel()]);
-  const resolved = resolve(searchParams, activeModel);
+  const [searchParams, activeModel, overrides] = await Promise.all([
+    props.searchParams,
+    getActiveFeeModel(),
+    getActiveOverrides(),
+  ]);
+  const resolved = resolve(searchParams, activeModel, overrides);
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-16">

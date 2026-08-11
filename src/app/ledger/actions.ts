@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin, requireUser } from "@/lib/auth/profile";
 import { acceptFeeModel, getActiveFeeModel, getFeeModelById } from "@/lib/db/fee-models";
+import { clearOverride, setOverride } from "@/lib/db/fee-overrides";
 import { excludeTransaction, recordTransaction } from "@/lib/db/transactions";
 import { isCurrency } from "@/lib/fees/currencies";
+import { parseTargetKey, validateEffectiveFrom, validateOverrideValue } from "@/lib/fees/overrides";
 import { parseAmountToMinorUnits } from "@/lib/format";
 import { getFxRateToUSD } from "@/lib/fx/frankfurter";
 import { loadLedgerStatus } from "./status";
@@ -177,6 +179,83 @@ export async function revertToModelAction(formData: FormData) {
     acceptedBy: user.id,
     note: `Reverted by admin ${user.email ?? user.id} to a prior accepted model (originally accepted ${target.asOf}).`,
   });
+
+  revalidatePath("/ledger");
+  revalidatePath("/");
+  revalidatePath("/breakdown");
+  redirect("/ledger");
+}
+
+/**
+ * Either role can set an override (docs/plan-v0.6.html "Override targets"
+ * — confirmed decision: correcting a published rate or fee is not the
+ * kind of data-quality judgment call this app reserves for admin). The
+ * posted target_key is re-parsed against the real SCHEDULE/CURRENCIES
+ * tables (parseTargetKey), not trusted as-is — the same
+ * re-read-server-side guard acceptProposalAction/revertToModelAction
+ * apply, since a form field is attacker-editable. The typed value is a
+ * percentage for a rate/spread target ("4.625" meaning 4.625%) or a
+ * major-unit money amount for a fixed-fee target ("0.31"), matching what
+ * the rates table displays — converted to the engine's storage units
+ * (a fraction, or integer minor units via currencySpec's
+ * minorUnitExponent) here, in one place, so the JPY-exponent trap
+ * (CLAUDE.md "Domain model") can't be mishandled per call site.
+ */
+export async function setOverrideAction(formData: FormData) {
+  await requireUser("/ledger");
+
+  const fail = (error: string) => redirect(`/ledger?error=${encodeURIComponent(error)}`);
+
+  const targetKeyRaw = String(formData.get("targetKey") ?? "");
+  const target = parseTargetKey(targetKeyRaw);
+  if (!target) {
+    return fail("Unrecognized rate or fee.");
+  }
+
+  const valueInput = String(formData.get("value") ?? "").trim();
+  const effectiveFrom = String(formData.get("effectiveFrom") ?? "").trim();
+  const note = String(formData.get("note") ?? "").trim() || null;
+
+  let value: number | null;
+  if (target.kind === "fixedFee") {
+    value = parseAmountToMinorUnits(valueInput, target.currency);
+  } else {
+    const percent = Number(valueInput);
+    value = Number.isFinite(percent) ? percent / 100 : null;
+  }
+  if (value == null) {
+    return fail("Enter a valid figure.");
+  }
+
+  const valueError = validateOverrideValue(target, value);
+  if (valueError) {
+    return fail(valueError);
+  }
+  const dateError = validateEffectiveFrom(effectiveFrom);
+  if (dateError) {
+    return fail(dateError);
+  }
+
+  const result = await setOverride({ targetKey: targetKeyRaw, value, effectiveFrom, note });
+  if (!result.ok) {
+    return fail(result.error);
+  }
+
+  revalidatePath("/ledger");
+  revalidatePath("/");
+  revalidatePath("/breakdown");
+  redirect("/ledger");
+}
+
+/** Either role can clear an override — see setOverrideAction's doc comment. Inserts a tombstone row (fee_overrides is append-only); never deletes. */
+export async function clearOverrideAction(formData: FormData) {
+  await requireUser("/ledger");
+
+  const targetKeyRaw = String(formData.get("targetKey") ?? "");
+  const target = parseTargetKey(targetKeyRaw);
+  if (target) {
+    await clearOverride(targetKeyRaw);
+  }
 
   revalidatePath("/ledger");
   revalidatePath("/");

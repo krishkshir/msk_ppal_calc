@@ -1,3 +1,5 @@
+import type { FeeSourceId } from "./sources";
+
 /**
  * How trustworthy a figure is, per CONSTITUTION.md's "estimates are
  * labeled as estimates" principle:
@@ -5,8 +7,24 @@
  * - estimated: a documented assumption standing in for missing data
  * - unvalidated: sourced from a published table or third-party tool,
  *   never checked against a real transaction
+ *
+ * Always exactly one of these three for anything stored (a static
+ * schedule.ts/currencies.ts row, a fee_models row, its DB check
+ * constraint) — see DisplayConfidence for the fourth, display-only value
+ * that a *resolved* figure (FeeLineItem, FeeModel) can carry.
  */
 export type Confidence = "observed" | "estimated" | "unvalidated";
+
+/**
+ * Confidence plus "manual" — typed in as a correction on /ledger
+ * (src/lib/fees/overrides.ts), never a value any static table or the
+ * fee_models table itself can hold (only what settle()/quote() resolve
+ * at call time can be "manual"). Kept distinct from Confidence so a
+ * static CurrencySpec/ScheduleEntry/ActiveFeeModelRow can never
+ * type-check as "manual" — only FeeLineItem.confidence and
+ * FeeModel.confidence/fxSpreadConfidence (src/lib/fees/model.ts) do.
+ */
+export type DisplayConfidence = Confidence | "manual";
 
 export interface CurrencySpec {
   code: string;
@@ -24,14 +42,10 @@ export interface CurrencySpec {
   fixedFeeMinorUnits: number;
   confidence: Confidence;
   effectiveFrom: string;
-  sourceUrl: string;
+  sourceId: FeeSourceId;
   note?: string;
 }
 
-const PAYPAL_BUSINESS_FEES_SOURCE_URL =
-  "https://www.paypal.com/ae/business/paypal-business-fees";
-const OBSERVED_TRANSACTIONS_SOURCE =
-  "../docs/CONSTITUTION.md#observed-transactions-ground-truth";
 const FIXED_FEE_EFFECTIVE_FROM = "2026-05-28";
 
 /**
@@ -62,7 +76,7 @@ export const CURRENCIES = [
     fixedFeeMinorUnits: 31,
     confidence: "observed",
     effectiveFrom: FIXED_FEE_EFFECTIVE_FROM,
-    sourceUrl: OBSERVED_TRANSACTIONS_SOURCE,
+    sourceId: "observedTransactions",
     note:
       "PayPal publishes $0.30; three real transactions (T1-T3) refute it — " +
       "$0.31 is the figure that reproduces all three exactly.",
@@ -74,7 +88,7 @@ export const CURRENCIES = [
     fixedFeeMinorUnits: 30,
     confidence: "unvalidated",
     effectiveFrom: FIXED_FEE_EFFECTIVE_FROM,
-    sourceUrl: PAYPAL_BUSINESS_FEES_SOURCE_URL,
+    sourceId: "paypalBusinessFees",
     note: UNVALIDATED_FIXED_FEE_NOTE,
   },
   {
@@ -84,7 +98,7 @@ export const CURRENCIES = [
     fixedFeeMinorUnits: 35,
     confidence: "unvalidated",
     effectiveFrom: FIXED_FEE_EFFECTIVE_FROM,
-    sourceUrl: PAYPAL_BUSINESS_FEES_SOURCE_URL,
+    sourceId: "paypalBusinessFees",
     note: UNVALIDATED_FIXED_FEE_NOTE,
   },
   {
@@ -94,7 +108,7 @@ export const CURRENCIES = [
     fixedFeeMinorUnits: 20,
     confidence: "unvalidated",
     effectiveFrom: FIXED_FEE_EFFECTIVE_FROM,
-    sourceUrl: PAYPAL_BUSINESS_FEES_SOURCE_URL,
+    sourceId: "paypalBusinessFees",
     note: UNVALIDATED_FIXED_FEE_NOTE,
   },
   {
@@ -104,7 +118,7 @@ export const CURRENCIES = [
     fixedFeeMinorUnits: 55,
     confidence: "unvalidated",
     effectiveFrom: FIXED_FEE_EFFECTIVE_FROM,
-    sourceUrl: PAYPAL_BUSINESS_FEES_SOURCE_URL,
+    sourceId: "paypalBusinessFees",
     note: UNVALIDATED_FIXED_FEE_NOTE,
   },
   {
@@ -114,7 +128,7 @@ export const CURRENCIES = [
     fixedFeeMinorUnits: 30,
     confidence: "unvalidated",
     effectiveFrom: FIXED_FEE_EFFECTIVE_FROM,
-    sourceUrl: PAYPAL_BUSINESS_FEES_SOURCE_URL,
+    sourceId: "paypalBusinessFees",
     note: UNVALIDATED_FIXED_FEE_NOTE,
   },
   {
@@ -124,7 +138,7 @@ export const CURRENCIES = [
     fixedFeeMinorUnits: 45,
     confidence: "unvalidated",
     effectiveFrom: FIXED_FEE_EFFECTIVE_FROM,
-    sourceUrl: PAYPAL_BUSINESS_FEES_SOURCE_URL,
+    sourceId: "paypalBusinessFees",
     note: UNVALIDATED_FIXED_FEE_NOTE,
   },
   {
@@ -134,7 +148,7 @@ export const CURRENCIES = [
     fixedFeeMinorUnits: 50,
     confidence: "unvalidated",
     effectiveFrom: FIXED_FEE_EFFECTIVE_FROM,
-    sourceUrl: PAYPAL_BUSINESS_FEES_SOURCE_URL,
+    sourceId: "paypalBusinessFees",
     note: UNVALIDATED_FIXED_FEE_NOTE,
   },
   {
@@ -144,7 +158,7 @@ export const CURRENCIES = [
     fixedFeeMinorUnits: 235,
     confidence: "unvalidated",
     effectiveFrom: FIXED_FEE_EFFECTIVE_FROM,
-    sourceUrl: PAYPAL_BUSINESS_FEES_SOURCE_URL,
+    sourceId: "paypalBusinessFees",
     note: UNVALIDATED_FIXED_FEE_NOTE,
   },
   {
@@ -154,7 +168,7 @@ export const CURRENCIES = [
     fixedFeeMinorUnits: 40,
     confidence: "unvalidated",
     effectiveFrom: FIXED_FEE_EFFECTIVE_FROM,
-    sourceUrl: PAYPAL_BUSINESS_FEES_SOURCE_URL,
+    sourceId: "paypalBusinessFees",
     note: UNVALIDATED_FIXED_FEE_NOTE,
   },
   {
@@ -164,7 +178,7 @@ export const CURRENCIES = [
     fixedFeeMinorUnits: 325,
     confidence: "unvalidated",
     effectiveFrom: FIXED_FEE_EFFECTIVE_FROM,
-    sourceUrl: PAYPAL_BUSINESS_FEES_SOURCE_URL,
+    sourceId: "paypalBusinessFees",
     note: UNVALIDATED_FIXED_FEE_NOTE,
   },
   {
@@ -174,7 +188,7 @@ export const CURRENCIES = [
     fixedFeeMinorUnits: 280,
     confidence: "unvalidated",
     effectiveFrom: FIXED_FEE_EFFECTIVE_FROM,
-    sourceUrl: PAYPAL_BUSINESS_FEES_SOURCE_URL,
+    sourceId: "paypalBusinessFees",
     note: UNVALIDATED_FIXED_FEE_NOTE,
   },
   {
@@ -184,7 +198,7 @@ export const CURRENCIES = [
     fixedFeeMinorUnits: 260,
     confidence: "unvalidated",
     effectiveFrom: FIXED_FEE_EFFECTIVE_FROM,
-    sourceUrl: PAYPAL_BUSINESS_FEES_SOURCE_URL,
+    sourceId: "paypalBusinessFees",
     note: UNVALIDATED_FIXED_FEE_NOTE,
   },
   {
@@ -194,7 +208,7 @@ export const CURRENCIES = [
     fixedFeeMinorUnits: 135,
     confidence: "unvalidated",
     effectiveFrom: FIXED_FEE_EFFECTIVE_FROM,
-    sourceUrl: PAYPAL_BUSINESS_FEES_SOURCE_URL,
+    sourceId: "paypalBusinessFees",
     note: UNVALIDATED_FIXED_FEE_NOTE,
   },
   {
@@ -204,7 +218,7 @@ export const CURRENCIES = [
     fixedFeeMinorUnits: 1000,
     confidence: "unvalidated",
     effectiveFrom: FIXED_FEE_EFFECTIVE_FROM,
-    sourceUrl: PAYPAL_BUSINESS_FEES_SOURCE_URL,
+    sourceId: "paypalBusinessFees",
     note: UNVALIDATED_FIXED_FEE_NOTE,
   },
   {
@@ -214,7 +228,7 @@ export const CURRENCIES = [
     fixedFeeMinorUnits: 9000,
     confidence: "unvalidated",
     effectiveFrom: FIXED_FEE_EFFECTIVE_FROM,
-    sourceUrl: PAYPAL_BUSINESS_FEES_SOURCE_URL,
+    sourceId: "paypalBusinessFees",
     note: UNVALIDATED_FIXED_FEE_NOTE,
   },
   {
@@ -224,7 +238,7 @@ export const CURRENCIES = [
     fixedFeeMinorUnits: 120,
     confidence: "unvalidated",
     effectiveFrom: FIXED_FEE_EFFECTIVE_FROM,
-    sourceUrl: PAYPAL_BUSINESS_FEES_SOURCE_URL,
+    sourceId: "paypalBusinessFees",
     note: UNVALIDATED_FIXED_FEE_NOTE,
   },
   {
@@ -234,7 +248,7 @@ export const CURRENCIES = [
     fixedFeeMinorUnits: 400,
     confidence: "unvalidated",
     effectiveFrom: FIXED_FEE_EFFECTIVE_FROM,
-    sourceUrl: PAYPAL_BUSINESS_FEES_SOURCE_URL,
+    sourceId: "paypalBusinessFees",
     note: UNVALIDATED_FIXED_FEE_NOTE,
   },
   {
@@ -244,7 +258,7 @@ export const CURRENCIES = [
     fixedFeeMinorUnits: 60,
     confidence: "unvalidated",
     effectiveFrom: FIXED_FEE_EFFECTIVE_FROM,
-    sourceUrl: PAYPAL_BUSINESS_FEES_SOURCE_URL,
+    sourceId: "paypalBusinessFees",
     note: UNVALIDATED_FIXED_FEE_NOTE,
   },
   {
@@ -254,7 +268,7 @@ export const CURRENCIES = [
     fixedFeeMinorUnits: 200,
     confidence: "unvalidated",
     effectiveFrom: FIXED_FEE_EFFECTIVE_FROM,
-    sourceUrl: PAYPAL_BUSINESS_FEES_SOURCE_URL,
+    sourceId: "paypalBusinessFees",
     note: UNVALIDATED_FIXED_FEE_NOTE,
   },
   {
@@ -264,7 +278,7 @@ export const CURRENCIES = [
     fixedFeeMinorUnits: 1500,
     confidence: "unvalidated",
     effectiveFrom: FIXED_FEE_EFFECTIVE_FROM,
-    sourceUrl: PAYPAL_BUSINESS_FEES_SOURCE_URL,
+    sourceId: "paypalBusinessFees",
     note: UNVALIDATED_FIXED_FEE_NOTE,
   },
   {
@@ -274,7 +288,7 @@ export const CURRENCIES = [
     fixedFeeMinorUnits: 1100,
     confidence: "unvalidated",
     effectiveFrom: FIXED_FEE_EFFECTIVE_FROM,
-    sourceUrl: PAYPAL_BUSINESS_FEES_SOURCE_URL,
+    sourceId: "paypalBusinessFees",
     note: UNVALIDATED_FIXED_FEE_NOTE,
   },
 ] as const satisfies readonly CurrencySpec[];
