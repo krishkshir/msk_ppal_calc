@@ -124,6 +124,17 @@ Commands (via `pnpm`):
 - `pnpm test:watch` — run Vitest in watch mode
 - `pnpm typecheck` — `tsc --noEmit`
 
+If `pnpm dev` fails with `Module not found: Can't resolve
+'@vercel/turbopack-next/internal/font/google/font'` (traced to
+`src/app/layout.tsx`'s `next/font/google` imports), this is Turbopack's
+persistent dev cache, not a code or repo problem — confirmed by `pnpm
+build` succeeding fine in the same state. Google Fonts occasionally
+rotates the file hash for a given font/weight/subset; `next dev`'s
+Turbopack cache doesn't self-heal from a rotated-out URL, so it keeps
+retrying a now-404 link every request. Fix: `rm -rf .next` and restart
+`pnpm dev` — this only clears build artifacts (gitignored, nothing to
+push), forcing a fresh live lookup.
+
 ## Before pushing to remote
 
 Update the affected docs in the same change — `CLAUDE.md`, `README.md`, and
