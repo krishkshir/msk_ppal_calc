@@ -1,5 +1,6 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { signOut } from "@/lib/auth/actions";
 import { requestMagicLink } from "./actions";
 
 export default async function LoginPage(props: PageProps<"/login">) {
@@ -10,6 +11,11 @@ export default async function LoginPage(props: PageProps<"/login">) {
   // path in actions.ts — see requestMagicLink's doc comment for why that
   // one error specifically is worth telling the user about.
   const rateLimited = searchParams.error === "rate_limit";
+  // Set only by requireUser (src/lib/auth/profile.ts) when a valid,
+  // signed-in session has no matching allowed_accounts-derived profile —
+  // distinct from "signed out" because requesting another magic link
+  // can't fix it; the account itself isn't on the ledger's allow-list.
+  const noAccess = searchParams.error === "no_access";
 
   return (
     <main className="mx-auto max-w-sm px-6 py-16">
@@ -21,6 +27,18 @@ export default async function LoginPage(props: PageProps<"/login">) {
           Too many sign-in links requested recently — no email was sent this time. Wait a bit and
           try again.
         </p>
+      ) : null}
+
+      {noAccess ? (
+        <div className="mt-6 rounded-md border border-oxide/60 bg-oxide/10 px-3 py-2 text-sm text-oxide">
+          <p>That account isn&apos;t set up for this ledger. Sign out and try the address you use
+          for it.</p>
+          <form action={signOut} className="mt-2">
+            <button type="submit" className="text-xs underline underline-offset-4">
+              Sign out
+            </button>
+          </form>
+        </div>
       ) : null}
 
       {sent ? (

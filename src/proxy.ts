@@ -9,6 +9,15 @@ import type { NextRequest } from "next/server";
  * so gating is route-level here, never Vercel deployment protection over
  * the whole site — see docs/plan-v0.5.html "Routes".
  *
+ * This checks authentication only — is there a valid session — never
+ * identity or role. WHO may hold a session at all (the
+ * krish.kshir@gmail.com / karendlima3@gmail.com / shrikantkshirsagar29@gmail.com
+ * allow-list) is enforced in the database, at account-creation time
+ * (handle_new_user, supabase/migrations/20260811090000_allowed_accounts.sql)
+ * and again in every RLS policy; role (admin vs. user) is enforced by
+ * src/lib/auth/profile.ts's requireUser/requireAdmin plus RLS. See
+ * docs/plan-ledger-access-lockdown.html.
+ *
  * Named `proxy.ts`, not `middleware.ts` — this Next.js version (16)
  * renamed the file convention; see node_modules/next/dist/docs
  * "Migration to Proxy".

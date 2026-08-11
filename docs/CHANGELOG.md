@@ -7,6 +7,48 @@ the substantive changes.
 
 ## Unreleased
 
+- Fixed a security issue in v0.5's ledger: `/ledger` was gated only on "is
+  this a valid authenticated session," not identity. `signInWithOtp`
+  (`src/app/login/actions.ts`) never set `shouldCreateUser: false`, so any
+  email address self-registered on first request; `handle_new_user`
+  (`supabase/migrations/20260810160000_v0_5_ledger.sql`) unconditionally
+  granted every new account a `profiles` row; and the `transactions`/
+  `fee_models` RLS policies checked only `to authenticated`, e.g.
+  `using ( true )`. Verified live before the fix: as `authenticated` with
+  an arbitrary unknown `sub`, `select count(*) from public.transactions`
+  returned every row. A stranger could read the whole ledger, insert
+  fraudulent transactions to steer the re-derived rate, or insert a
+  `fee_models` row directly — which drives the **public** `/` calculator
+  and every client-facing `/breakdown` link with no session at all.
+  - `supabase/migrations/20260811090000_allowed_accounts.sql` (new) — a
+    zero-policy `allowed_accounts` table (`shrikantkshirsagar29@gmail.com`
+    as admin — the sole pre-existing account, promoted in place —
+    `karendlima3@gmail.com` and `krish.kshir@gmail.com` as user);
+    `handle_new_user` rewritten to `RAISE EXCEPTION` for any other email,
+    aborting GoTrue's transaction before any account or magic-link email
+    is created; `is_ledger_member()`/`is_ledger_admin()` `SECURITY
+    DEFINER` helpers (owned by `postgres`, decoupled from `profiles`' own
+    SELECT policy) used by the rewritten `transactions`/`fee_models`
+    policies in place of `to authenticated`. Deliberately never references
+    `allowed_accounts` from a policy — a policy subquery runs as the
+    invoking role, so that would silently deny everyone. `fee_models`
+    SELECT stays open to `anon` — the public calculator needs it with no
+    login. Applied and verified live: unlisted emails now rejected with no
+    account created and no email sent; an authenticated session with an
+    unlisted `sub` now sees 0 transactions (was all of them); `fee_models`
+    is still readable as `anon`. See `docs/plan-ledger-access-lockdown.html`.
+  - `src/lib/auth/profile.ts` — `getCurrentUser()` had a fail-open bug: a
+    valid JWT with no matching `profiles` row (exactly the state an
+    unlisted email is now left in) fell through to `role: "user"`
+    (`.single()`'s zero-row error was silently discarded). Now fails
+    closed via `.maybeSingle()` and an explicit no-profile case;
+    `requireAdmin` also no longer dead-ends a signed-in non-admin at
+    `/login` — redirects to `/ledger` instead.
+  - `src/app/login/page.tsx` — a distinct `?error=no_access` message (plus
+    a sign-out button) for a signed-in-but-unlisted visitor, since
+    requesting another magic link can't fix that.
+  - `CLAUDE.md` — the "promote to admin in the SQL editor" step is
+    retired; role now comes from `allowed_accounts` automatically.
 - Implemented v0.5: a gated `/ledger` where Ms. K records real PayPal
   transactions herself, and the app re-derives the commercial rate,
   per-currency fixed fees, and the FX spread from them — proposing a

@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan: locking the ledger to an allow-list — msk_ppal_calc</title>
+<style>
+  :root {
+    --ink: #12203A;
+    --paper: #FBFAF7;
+    --paper-dim: #F3F1EA;
+    --rule: #DAD5C7;
+    --red: #A6432B;
+    --teal: #1F6F5C;
+    --brass: #C9A227;
+    --muted: #5B6472;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 840px; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
+  header.page-head {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 2rem;
+    margin-bottom: 3rem;
+  }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 0.75rem;
+  }
+  h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 600;
+    font-size: clamp(2rem, 5vw, 2.75rem);
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.01em;
+  }
+  .subtitle { color: var(--muted); font-size: 1.05rem; margin: 0; }
+  h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.5rem;
+    margin: 3rem 0 1rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+  }
+  h2:first-of-type { border-top: none; padding-top: 0; }
+  h3 {
+    font-size: 1.05rem;
+    margin: 2rem 0 0.75rem;
+    color: var(--ink);
+  }
+  p { margin: 0 0 1rem; }
+  blockquote {
+    margin: 1.5rem 0;
+    padding: 1rem 1.25rem;
+    background: var(--paper-dim);
+    border-left: 3px solid var(--brass);
+    font-style: italic;
+    color: var(--ink);
+  }
+  blockquote p:last-child { margin-bottom: 0; }
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    background: var(--paper-dim);
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+  pre {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 1.25rem 1.5rem;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.7;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.25rem 0;
+    font-size: 0.95rem;
+  }
+  caption { caption-side: bottom; }
+  th, td {
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  td:nth-child(2), td.num {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    white-space: nowrap;
+  }
+  .callout {
+    margin: 1.5rem 0;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--red);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--red) 6%, var(--paper));
+  }
+  .callout .label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--red);
+    margin: 0 0 0.5rem;
+    font-weight: 600;
+  }
+  .callout.ok {
+    border-color: var(--teal);
+    background: color-mix(in srgb, var(--teal) 6%, var(--paper));
+  }
+  .callout.ok .label { color: var(--teal); }
+  .files-table td:first-child, .files-table th:first-child {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.85rem;
+    color: var(--teal);
+  }
+  ul.steps { padding-left: 1.25rem; }
+  ul.steps li { margin-bottom: 0.5rem; }
+  a { color: var(--teal); }
+  footer.sources {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  footer.sources ul { padding-left: 1.25rem; }
+  .status-pill {
+    display: inline-block;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--teal);
+    border: 1px solid var(--teal);
+    border-radius: 999px;
+    padding: 0.2rem 0.7rem;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page-head">
+    <p class="eyebrow">Plan · msk_ppal_calc · security fix</p>
+    <h1>Locking the ledger to an allow-list</h1>
+    <p class="subtitle">The v0.5 <code>/ledger</code> gate checked only "is this a valid
+    authenticated session," not "is this one of the two people who should have one." Anyone who
+    knows the app's URL could self-register and read or write the ledger that drives the public
+    calculator's pricing. This is the fix, written up alongside its implementation.</p>
+    <p style="margin-top:1rem"><span class="status-pill">Implemented</span></p>
+  </header>
+
+  <section>
+    <h2>The vulnerability</h2>
+    <p>
+      <code>src/proxy.ts</code> gates <code>/ledger*</code> on <code>getClaims()</code> succeeding
+      — a valid session, nothing about identity. <code>src/app/login/actions.ts</code>'s
+      <code>requestMagicLink</code> calls <code>supabase.auth.signInWithOtp({ email })</code> with
+      no <code>shouldCreateUser: false</code>, so <strong>any</strong> email address self-registers
+      on first request. The <code>on_auth_user_created</code> trigger
+      (<code>supabase/migrations/20260810160000_v0_5_ledger.sql</code>) then unconditionally grants
+      every new <code>auth.users</code> row a <code>profiles</code> row with <code>role='user'</code>.
+      RLS policies on <code>transactions</code> and <code>fee_models</code> only checked
+      <code>to authenticated</code>, not identity:
+    </p>
+    <pre>create policy "authenticated can read all transactions"
+on public.transactions for select to authenticated using ( true );</pre>
+    <p>
+      A stranger could sign in, read the whole ledger, insert fraudulent transactions, and — worse
+      — insert <code>fee_models</code> rows directly, since <code>fee_models</code> INSERT only
+      checked <code>accepted_by = auth.uid()</code>. <code>fee_models</code>'s latest row is the
+      active pricing model that drives the <strong>public, unauthenticated</strong> <code>/</code>
+      calculator and <code>/breakdown</code> client links — a stranger with no relationship to Ms. K
+      could rewrite the numbers every client sees.
+    </p>
+    <div class="callout">
+      <p class="label">Finding — confirmed live, not theoretical</p>
+      <p>
+        Verified directly: as <code>authenticated</code> with an arbitrary, unknown <code>sub</code>,
+        <code>select count(*) from public.transactions</code> still returned all 3 seeded rows. The
+        policy's <code>using ( true )</code> meant identity played no role at all in what was
+        readable.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>The fix — allow-list enforced at two layers, both in the database</h2>
+    <p>
+      Not in the Next.js app: a server action is a public POST endpoint, and any app-side check can
+      be bypassed by calling Supabase directly with the anon key. The allow-list has to be enforced
+      where the data actually lives.
+    </p>
+    <h3>1. A new table with zero policies</h3>
+    <p>
+      <code>public.allowed_accounts (email text primary key, role text check (role in ('admin',
+      'user')), note, created_at)</code>, RLS enabled with <strong>zero</strong> policies —
+      deny-all to <code>anon</code> and <code>authenticated</code> — plus an explicit
+      <code>revoke all ... from anon, authenticated</code>, since Supabase's default grants include
+      TRUNCATE, which RLS doesn't cover. Seeded with exactly three rows:
+    </p>
+    <table>
+      <thead><tr><th>Email</th><th>Role</th><th>Note</th></tr></thead>
+      <tbody>
+        <tr><td>shrikantkshirsagar29@gmail.com</td><td>admin</td><td>Maintainer — already the sole existing account, promoted in place</td></tr>
+        <tr><td>karendlima3@gmail.com</td><td>user</td><td>Ms. K</td></tr>
+        <tr><td>krish.kshir@gmail.com</td><td>user</td><td>Maintainer's second account</td></tr>
+      </tbody>
+    </table>
+    <h3>2. The signup trigger rejects anyone not on the list</h3>
+    <p>
+      <code>handle_new_user()</code> (the <code>AFTER INSERT ON auth.users</code> trigger function,
+      <code>SECURITY DEFINER</code>) is rewritten to look up <code>lower(btrim(new.email))</code> in
+      <code>allowed_accounts</code>. If absent, <code>RAISE EXCEPTION 'account not permitted'</code>,
+      which aborts GoTrue's transaction — no <code>auth.users</code> row is created, no session, and
+      critically <strong>no magic-link email is ever sent</strong>, since GoTrue creates the user row
+      before invoking the mailer. This also protects the project's own email quota (roughly 3/hour)
+      from being burned by a stranger, which would lock out the two real accounts. If present, the
+      trigger inserts <code>profiles(id, role)</code> with the mapped role.
+    </p>
+    <h3>3. Two <code>SECURITY DEFINER</code> helper functions gate the RLS policies</h3>
+    <p>
+      <code>is_ledger_member()</code> and <code>is_ledger_admin()</code>, owned by <code>postgres</code>
+      (which has <code>BYPASSRLS</code>), are used inside RLS policies instead of inlining
+      <code>exists (select 1 from profiles ...)</code> directly. This decouples the policies from
+      <code>profiles</code>' own SELECT policy — the pre-existing admin policy on
+      <code>transactions</code> only worked because <code>profiles</code>' "users can read their own
+      profile" policy happened to expose exactly the row the subquery needed; narrowing that policy
+      later would have silently broken admin UPDATEs to "0 rows affected" with no error anywhere.
+      Both helpers take no arguments, so they're safe to expose as PostgREST RPC — a hypothetical
+      <code>is_allowed(email)</code> would be a public allow-list oracle, which is why the email
+      lookup instead stays inlined inside the trigger, which runs as <code>postgres</code> and needs
+      no grant.
+    </p>
+    <h3>4. Policies rewritten to check membership, not just authentication</h3>
+    <table>
+      <thead><tr><th>Policy</th><th>Before</th><th>After</th></tr></thead>
+      <tbody>
+        <tr><td>transactions — select</td><td class="num">to authenticated using (true)</td><td class="num">using ((select public.is_ledger_member()))</td></tr>
+        <tr><td>transactions — insert</td><td class="num">to authenticated with check (...)</td><td class="num">with check ((select public.is_ledger_member()) and ...)</td></tr>
+        <tr><td>transactions — update/exclude (admin)</td><td class="num">exists (select 1 from profiles ...)</td><td class="num">using ((select public.is_ledger_admin()))</td></tr>
+        <tr><td>fee_models — insert</td><td class="num">accepted_by = auth.uid()</td><td class="num">(select public.is_ledger_member()) and accepted_by = auth.uid()</td></tr>
+        <tr><td>fee_models — select</td><td class="num">to anon, authenticated using (true)</td><td class="num">unchanged — public calculator needs it with no session</td></tr>
+      </tbody>
+    </table>
+    <h3>5. Reconcile existing data</h3>
+    <p>
+      Promotes the existing sole account to <code>admin</code> (it wasn't previously <code>admin</code>),
+      and strips <code>profiles</code> rows for anyone not on the allow-list — a no-op today, since
+      the only existing account is being kept, just promoted.
+    </p>
+  </section>
+
+  <div class="callout">
+    <p class="label">Trap avoided — the crux of the design</p>
+    <p>
+      A table with RLS enabled but zero policies is <strong>not</strong> a source you can reference
+      <em>from inside another table's RLS policy</em>. A policy subquery runs as the invoking role,
+      so <code>exists (select 1 from allowed_accounts ...)</code> inside a policy on
+      <code>transactions</code> would always see zero rows — RLS denies the
+      <code>anon</code>/<code>authenticated</code> role reading <code>allowed_accounts</code> itself
+      — and the policy would be <strong>unconditionally false</strong>, silently locking the ledger
+      for everyone, admin included, with no error anywhere. The fix: never reference
+      <code>allowed_accounts</code> from a policy; policies reference <code>profiles</code>
+      (materialized allow-list membership, written once at signup by the <code>SECURITY DEFINER</code>
+      trigger) via the helper functions instead.
+    </p>
+  </div>
+
+  <section>
+    <h2>App-layer changes — defense in depth, not the actual security boundary</h2>
+    <ul class="steps">
+      <li><strong><code>src/lib/auth/profile.ts</code>'s <code>getCurrentUser()</code> had a
+      fail-OPEN bug:</strong> <code>role: profile?.role === "admin" ? "admin" : "user"</code>
+      returned a valid signed-in <code>CurrentUser</code> even when <strong>no</strong>
+      <code>profiles</code> row existed — <code>.single()</code>'s zero-row error was silently
+      discarded. Fixed to fail closed: a missing profile now denies access rather than defaulting to
+      <code>role: "user"</code>.</li>
+      <li><code>src/app/login/page.tsx</code> gained an <code>error=no_access</code> message for a
+      signed-in-but-not-allow-listed visitor, with a sign-out button.</li>
+      <li>No change to <code>shouldCreateUser</code> — stays default <code>true</code>, needed so the
+      two new allow-listed accounts can bootstrap. No app-side allow-list duplicate check either —
+      that would reopen the email-enumeration hole the existing generic "check your email" swallow
+      was built to close.</li>
+    </ul>
+  </section>
+
+  <div class="callout ok">
+    <p class="label">Decision — promote, don't replace</p>
+    <p>
+      The sole pre-existing account (<code>shrikantkshirsagar29@gmail.com</code>, previously role
+      <code>user</code>) is promoted to <code>admin</code> rather than removed or added as a fourth
+      account — it's the maintainer's own account.
+    </p>
+  </div>
+
+  <section>
+    <h2>Residual risks — accepted and documented, not fixed</h2>
+    <ul class="steps">
+      <li><strong>Allow-list enforced at account-creation time only.</strong> A signed-in
+      allow-listed user could self-serve-change their email via GoTrue's <code>updateUser</code>,
+      keeping access under a different address, since authorization keys off <code>profiles.id</code>,
+      not email. Not fixed: a <code>BEFORE UPDATE ON auth.users</code> re-check would break GoTrue's
+      own email-change flow.</li>
+      <li><strong>The trigger blocks every path into <code>auth.users</code></strong>, including the
+      Supabase Dashboard's own "Add/Invite user" action — adding a fourth person means seeding
+      <code>allowed_accounts</code> first, not just inviting them from the dashboard.</li>
+      <li><strong>An allow-listed account can still insert arbitrary transaction/fee_model data via
+      its own session</strong> — unchanged from before this fix; both accounts are trusted.</li>
+      <li><strong>Supabase Auth dashboard settings remain outside version control</strong> — this
+      migration governs the schema and RLS, not dashboard-level auth configuration.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Files changed</h2>
+    <table class="files-table">
+      <thead><tr><th>Path</th><th>Change</th></tr></thead>
+      <tbody>
+        <tr><td>supabase/migrations/20260811090000_allowed_accounts.sql <em>(new)</em></td><td><code>allowed_accounts</code> table with zero policies + explicit revoke; rewritten <code>handle_new_user()</code>; <code>is_ledger_member()</code>/<code>is_ledger_admin()</code> helpers; rewritten RLS policies on <code>transactions</code> and <code>fee_models</code>; reconcile step promoting the existing account and stripping any non-allow-listed profiles</td></tr>
+        <tr><td>supabase/migrations/20260810160000_v0_5_ledger.sql</td><td>Original schema being amended by the migration above — not edited in place, per this project's append-only migration convention</td></tr>
+        <tr><td>src/lib/auth/profile.ts</td><td><code>getCurrentUser()</code> fail-closed fix on a missing <code>profiles</code> row</td></tr>
+        <tr><td>src/app/login/page.tsx</td><td><code>error=no_access</code> messaging + sign-out button for a signed-in, non-allow-listed visitor</td></tr>
+        <tr><td>src/app/login/actions.ts</td><td>Reviewed, unchanged — <code>shouldCreateUser</code> stays default <code>true</code>; no app-side duplicate allow-list check</td></tr>
+        <tr><td>src/proxy.ts</td><td>Session-validity gating logic unchanged — a comment now clarifies it checks authentication only, never identity/role, which live in the database layer</td></tr>
+        <tr><td>CLAUDE.md, docs/CHANGELOG.md</td><td>Logged per CLAUDE.md § "Before pushing to remote"</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer class="sources">
+    <strong>Sources</strong>
+    <ul>
+      <li><a href="CONSTITUTION.md">docs/CONSTITUTION.md</a> — mission, domain model, and the
+      Supabase/RLS design principles this fix operates within</li>
+      <li><a href="CHANGELOG.md">docs/CHANGELOG.md</a> — chronological log of changes, including
+      this fix</li>
+      <li><code>supabase/migrations/20260811090000_allowed_accounts.sql</code> — the migration this
+      plan documents</li>
+    </ul>
+  </footer>
+
+</div>
+</body>
+</html>

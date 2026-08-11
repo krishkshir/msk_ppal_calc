@@ -332,10 +332,20 @@ care as a production deploy. Apply new migrations with `psql
 `.env.local` first) — the Supabase CLI itself isn't linked to this
 project (`supabase link` needs an interactive `supabase login`), so
 `psql` against the pooled-off connection string is the working path.
-Promoting an account to `role='admin'` in `public.profiles` is a
-one-time manual SQL step by the maintainer, deliberately not a UI
-feature — see `supabase/migrations/20260810160000_v0_5_ledger.sql`'s
-comment on `handle_new_user()`.
+`/ledger` is locked to a fixed allow-list, `public.allowed_accounts`
+(`supabase/migrations/20260811090000_allowed_accounts.sql`) —
+currently `shrikantkshirsagar29@gmail.com` (admin) and
+`karendlima3@gmail.com` / `krish.kshir@gmail.com` (user). `role` is no
+longer a manual promotion step: `handle_new_user()` looks the signing-in
+email up in `allowed_accounts` and refuses (aborting the signup, no
+account created, no email sent) if it's absent, so adding or removing a
+person is `insert`/`delete` on `allowed_accounts` — done before the
+person's first sign-in attempt, since the trigger blocks every path into
+`auth.users`, including the Supabase Dashboard's own "Add/Invite user".
+See `docs/plan-ledger-access-lockdown.html` for the full design,
+including why the allow-list itself is never referenced from an RLS
+policy (a zero-policy table referenced from another table's policy
+subquery evaluates to "deny everyone", silently).
 
 ## Non-goals
 
