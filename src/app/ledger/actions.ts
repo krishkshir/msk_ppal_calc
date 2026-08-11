@@ -7,7 +7,8 @@ import { acceptFeeModel, getActiveFeeModel, getFeeModelById } from "@/lib/db/fee
 import { clearOverride, setOverride } from "@/lib/db/fee-overrides";
 import { excludeTransaction, recordTransaction } from "@/lib/db/transactions";
 import { isCurrency } from "@/lib/fees/currencies";
-import { parseTargetKey, validateEffectiveFrom, validateOverrideValue } from "@/lib/fees/overrides";
+import { parseTargetKey, targetKey, validateEffectiveFrom, validateOverrideValue } from "@/lib/fees/overrides";
+import { isQuotedTier } from "@/lib/fees/schedule";
 import { parseAmountToMinorUnits } from "@/lib/format";
 import { getFxRateToUSD } from "@/lib/fx/frankfurter";
 import { loadLedgerStatus } from "./status";
@@ -211,10 +212,17 @@ export async function setOverrideAction(formData: FormData) {
   if (!target) {
     return fail("Unrecognized rate or fee.");
   }
+  if (target.kind === "rate" && !isQuotedTier(target.buyerMarket, target.minMonthlyVolumeUSDCents)) {
+    return fail("That volume tier isn't used for quoting.");
+  }
 
   const valueInput = String(formData.get("value") ?? "").trim();
   const effectiveFrom = String(formData.get("effectiveFrom") ?? "").trim();
   const note = String(formData.get("note") ?? "").trim() || null;
+
+  if (valueInput === "") {
+    return fail("Enter a valid figure.");
+  }
 
   let value: number | null;
   if (target.kind === "fixedFee") {
@@ -236,7 +244,7 @@ export async function setOverrideAction(formData: FormData) {
     return fail(dateError);
   }
 
-  const result = await setOverride({ targetKey: targetKeyRaw, value, effectiveFrom, note });
+  const result = await setOverride({ targetKey: targetKey(target), value, effectiveFrom, note });
   if (!result.ok) {
     return fail(result.error);
   }
@@ -254,7 +262,7 @@ export async function clearOverrideAction(formData: FormData) {
   const targetKeyRaw = String(formData.get("targetKey") ?? "");
   const target = parseTargetKey(targetKeyRaw);
   if (target) {
-    await clearOverride(targetKeyRaw);
+    await clearOverride(targetKey(target));
   }
 
   revalidatePath("/ledger");

@@ -653,6 +653,56 @@ export function buildRateRows(
     </ul>
   </section>
 
+  <section>
+    <h2>Corrections after implementation</h2>
+    <p>
+      A code review of the commit implementing this plan found ten issues, all fixed in the same push. Recorded
+      here — same convention as <code>docs/plan-share-link-drift.html</code>'s "Trust boundary" section — because
+      two of them revise decisions this plan stated as settled.
+    </p>
+    <ul class="steps">
+      <li><strong>An override can only ever reach the tier <code>resolveFeeModel</code> actually selects for
+      quoting.</strong> This plan's <code>applicable</code> flag (the table's dimming) was originally
+      display-only — the three higher <code>OTHER</code>-market volume tiers still rendered a working Override
+      form, even though <code>resolveFeeModel</code> hardcodes <code>selectTier(buyerMarket, 0)</code> and can
+      never look them up. Setting one of those overrides was silently accepted and displayed as "in force" while
+      never affecting a single quote. Fixed by a new <code>isQuotedTier()</code> in <code>schedule.ts</code>,
+      used to hide the Override control in <code>rates-table.tsx</code> <em>and</em> to reject the target
+      server-side in <code>setOverrideAction</code> (a raw POST bypassing the hidden control must fail too, the
+      same reasoning already applied to every other server-side re-validation in <code>actions.ts</code>).</li>
+      <li><strong><code>DisplayConfidence</code>'s <code>"manual"</code> value needed its own downgrade and
+      labeling rules, not silent pass-through.</strong> <code>engine.ts</code>'s <code>confidenceFor()</code>
+      (which downgrades a commercial fee's confidence when a non-USD currency's fixed fee is still the static,
+      unvalidated figure) special-cased only <code>"observed"</code>, written before <code>"manual"</code>
+      existed — so a rate override with no matching fixed-fee override badged the whole non-USD fee
+      "Overridden," half of which was untouched. The same gap existed in reverse in
+      <code>model.ts</code>'s <code>resolveFeeModel</code> (a fixed-fee-only override could mask a
+      still-unvalidated static rate as <code>"manual"</code>), and in two of <code>settle()</code>'s note
+      strings, which cited "the accepted ledger model" or PayPal's published 4.0% spread even when the actual
+      source was a manual override. All four now check for <code>"manual"</code> explicitly rather than falling
+      through an allow-list written for three values.</li>
+      <li><strong>Two form-input bugs in the override path.</strong> An empty Value field parsed to
+      <code>Number("") === 0</code>, a finite, in-range number — clearing the box and saving silently set a 0%
+      rate or spread. And <code>percentFormValue</code>'s <code>String(rate * 100)</code> prefilled the form
+      with floating-point noise (<code>"4.6899999999999995"</code> for 4.69%) that didn't match the
+      <code>.toFixed(3)</code> value shown next to it — saving the form unedited, e.g. just to add a note, would
+      drift the stored value and flip the row to "Manual" for no real change.</li>
+      <li><strong><code>setOverrideAction</code>/<code>clearOverrideAction</code> persisted the raw form field,
+      not the value <code>parseTargetKey</code> had just validated.</strong> A syntactically-valid but
+      non-canonical key (<code>"rate:OTHER:00"</code>, which <code>parseTargetKey</code> accepts and resolves to
+      the same tier as <code>"rate:OTHER:0"</code>) was stored verbatim, so <code>findOverride</code> — which
+      always looks up the canonical form — never matched it. The row was accepted, invisible everywhere, and
+      could never be cleared through the UI. Fixed by re-serializing the validated target with
+      <code>targetKey()</code> before every write, instead of trusting the posted string.</li>
+      <li>Two smaller fixes: the status panel's per-currency fixed-fee list had no masking-warning check at all
+      (only the commercial-rate/USD-fixed-fee section did), and that section's own warning was a ternary chain
+      that rendered only one of two simultaneously-active overrides rather than both, as this plan's "masking
+      warning" section intended. And the "Computed by this app from T1–T3" source now links to the file on
+      GitHub rather than a repo-relative <code>docs/CONSTITUTION.md</code> path that 404s once deployed (no
+      route in this app serves <code>docs/</code>).</li>
+    </ul>
+  </section>
+
   <footer class="sources">
     <strong>Sources</strong>
     <ul>

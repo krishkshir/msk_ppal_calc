@@ -146,6 +146,52 @@ describe("resolveFeeModel — with manual overrides", () => {
     expect(model?.confidence).toBe("manual");
     expect(model?.asOf).toBe("2026-08-01");
   });
+
+  it("a fixed-fee-only override on a market whose static rate is unvalidated (UAE) does not mask that with 'manual'", () => {
+    // UAE's static tier confidence is "unvalidated" (schedule.ts). No rate
+    // override and no ledger row means the rate half still falls back to
+    // that unvalidated static tier in engine.ts — claiming "manual" here
+    // would hide that.
+    const overrides: ActiveOverrides = [
+      {
+        targetKey: "fixedFee:USD",
+        value: 33,
+        effectiveFrom: "2026-08-01",
+        setByEmail: null,
+        setAt: "2026-08-11T00:00:00Z",
+        note: null,
+      },
+    ];
+    const model = resolveFeeModel(null, "UAE", "USD", overrides);
+    expect(model?.fixedFeeMinorUnits).toBe(33);
+    expect(model?.rate).toBeUndefined();
+    expect(model?.confidence).toBe("unvalidated");
+  });
+
+  it("a fixed-fee override on UAE WITH a matching rate override still yields 'manual' (pre-existing case, no regression)", () => {
+    const overrides: ActiveOverrides = [
+      {
+        targetKey: "fixedFee:USD",
+        value: 33,
+        effectiveFrom: "2026-08-01",
+        setByEmail: null,
+        setAt: "2026-08-11T00:00:00Z",
+        note: null,
+      },
+      {
+        targetKey: "rate:UAE:0",
+        value: 0.032,
+        effectiveFrom: "2026-08-01",
+        setByEmail: null,
+        setAt: "2026-08-11T00:00:00Z",
+        note: null,
+      },
+    ];
+    const model = resolveFeeModel(null, "UAE", "USD", overrides);
+    expect(model?.fixedFeeMinorUnits).toBe(33);
+    expect(model?.rate).toBe(0.032);
+    expect(model?.confidence).toBe("manual");
+  });
 });
 
 describe("ledgerRateAppliesToMarket", () => {

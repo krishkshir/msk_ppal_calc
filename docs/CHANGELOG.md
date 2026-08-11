@@ -7,25 +7,58 @@ the substantive changes.
 
 ## Unreleased
 
-- Drafted `docs/plan-v0.6.html`: a proposal to render the rates and fees
-  the engine actually uses — the commercial rate per buyer-market tier,
-  the fixed fee for each of the 23 currencies, and the FX spread — on
-  `/ledger`, labeled with exactly where each figure comes from (named,
-  e.g. "PayPal — Business fees (AE)" or "designhill.com PayPal fee
-  calculator," vs. computed by this app) and the date it took effect.
-  `ScheduleEntry` and `CurrencySpec` already carry a `sourceUrl` and an
-  `effectiveFrom` on every row, but neither reaches any UI today — this
-  plan is mostly about finally rendering data that already exists, plus
-  a new `FeeSource` registry (`src/lib/fees/sources.ts`) that separates a
-  figure's *origin* from its existing, orthogonal `Confidence` rating.
-  New: both `user` and `admin` accounts would be able to type in a
-  corrected rate or fee as a dated manual override, which — per the
-  user's explicit direction — takes precedence over both the ledger's
-  own solver-derived model and the static schedule, applying immediately
-  to the public calculator and every new `/breakdown` link, with a
-  fourth `Confidence` value (`"manual"`) and a status-panel warning when
-  an override is masking what the recorded transactions would otherwise
-  determine. See `docs/plan-v0.6.html`.
+- Fixed ten issues a code review found in v0.6 (see below), before
+  pushing: a blank override Value field silently saved a 0% rate/spread
+  (`Number("") === 0`); the override form's prefilled percentage carried
+  floating-point noise (`String(0.0469 * 100)` → `"4.6899999999999995"`),
+  so saving a row unedited could drift it off its true value and flip it
+  to "Manual" for no real change; `setOverrideAction`/`clearOverrideAction`
+  persisted the raw, unvalidated `target_key` form field instead of the
+  canonical key `parseTargetKey` had just validated, so a
+  non-canonical-but-parseable key (e.g. `"rate:OTHER:00"`) created a
+  permanently inert, unclearable row; the three higher `OTHER`-market
+  volume tiers had a working Override control even though
+  `resolveFeeModel` can never apply an override on them (Ms. K's tier is
+  pinned to `selectTier(buyerMarket, 0)`) — their Override control is now
+  hidden and the server action rejects the target — see
+  `src/lib/fees/schedule.ts`'s new `isQuotedTier`. On the provenance side:
+  a manually-overridden FX spread's note still cited "PayPal's published
+  4.0%"; a pure manual override with no backing `fee_models` row was
+  mislabeled "from the accepted ledger model"; `confidenceFor`'s
+  observed→estimated downgrade rule (for a non-USD currency whose fixed
+  fee is still the static, unvalidated figure) didn't account for the new
+  `"manual"` value and let it pass through unchanged, badging a
+  half-overridden non-USD fee fully "Overridden"; the symmetric case in
+  `resolveFeeModel` (a fixed-fee-only override) could likewise mask a
+  still-unvalidated static rate as "manual"; the status panel's
+  per-currency fixed-fee list had no masking-warning check at all, and its
+  commercial-rate masking warning was a ternary chain that only ever
+  rendered one of two simultaneously-active overrides; and the "Computed
+  by this app from T1–T3" source link pointed at a repo-relative
+  `docs/CONSTITUTION.md` path that 404s once deployed (no route serves
+  `docs/`) — now points at the GitHub blob URL. Also dropped
+  `listOverrideHistory` (unused). See `docs/plan-v0.6.html`'s "Corrections
+  after implementation" section.
+- Implemented `docs/plan-v0.6.html`: a rates-and-fees table on `/ledger`
+  rendering the rates and fees the engine actually uses — the commercial
+  rate per buyer-market tier, the fixed fee for each of the 23
+  currencies, and the FX spread — labeled with exactly where each figure
+  comes from (named, e.g. "PayPal — Business fees (AE)" or
+  "designhill.com PayPal fee calculator," vs. computed by this app) and
+  the date it took effect. `ScheduleEntry` and `CurrencySpec` already
+  carried a `sourceId` (looked up against a new `FeeSource` registry,
+  `src/lib/fees/sources.ts`, that separates a figure's *origin* from its
+  existing, orthogonal `Confidence` rating) and an `effectiveFrom` on
+  every row, but neither reached any UI before this. New: both `user`
+  and `admin` accounts can type in a corrected rate or fee as a dated
+  manual override, which — per the user's explicit direction — takes
+  precedence over both the ledger's own solver-derived model and the
+  static schedule, applying immediately to the public calculator and
+  every new `/breakdown` link, with a fourth, UI-only
+  `DisplayConfidence` value (`"manual"`, kept separate from the
+  three-value, check-constraint-backed `Confidence` type) and a
+  status-panel warning when an override is masking what the recorded
+  transactions would otherwise determine.
 - Diagnosed and documented (not a code bug): magic-link emails from a
   deployed environment (preview or production) were redirecting to
   `http://localhost:3000` instead of the actual deployment. The generated

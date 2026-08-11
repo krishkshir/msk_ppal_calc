@@ -33,7 +33,7 @@ export const FEE_SOURCES = {
   observedTransactions: {
     kind: "derived",
     label: "Computed by this app from T1–T3",
-    url: "../docs/CONSTITUTION.md#observed-transactions-ground-truth",
+    url: "https://github.com/krishkshir/msk_ppal_calc/blob/main/docs/CONSTITUTION.md#observed-transactions-ground-truth",
   },
   ledgerModel: {
     kind: "derived",

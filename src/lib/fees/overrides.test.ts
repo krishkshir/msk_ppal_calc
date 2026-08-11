@@ -7,6 +7,7 @@ import {
   validateOverrideValue,
   type OverrideTarget,
 } from "./overrides";
+import { isQuotedTier, SCHEDULE } from "./schedule";
 
 describe("targetKey / parseTargetKey round-trip", () => {
   const cases: OverrideTarget[] = [
@@ -102,6 +103,23 @@ describe("validateEffectiveFrom", () => {
   it("rejects a malformed date", () => {
     expect(validateEffectiveFrom("08/11/2026", today)).not.toBeNull();
     expect(validateEffectiveFrom("not-a-date", today)).not.toBeNull();
+  });
+});
+
+describe("isQuotedTier — the only tier a rate override can actually reach", () => {
+  it("is true for the $0-$3,000 OTHER tier and false for the three higher OTHER tiers", () => {
+    const otherTiers = SCHEDULE.filter((entry) => entry.buyerMarket === "OTHER");
+    for (const entry of otherTiers) {
+      expect(isQuotedTier("OTHER", entry.minMonthlyVolumeUSDCents)).toBe(entry.minMonthlyVolumeUSDCents === 0);
+    }
+    expect(otherTiers.filter((entry) => entry.minMonthlyVolumeUSDCents > 0).length).toBe(3);
+  });
+
+  it("is true for UAE and EEA_UK at their (only) tier", () => {
+    const uae = SCHEDULE.find((entry) => entry.buyerMarket === "UAE")!;
+    const eeaUk = SCHEDULE.find((entry) => entry.buyerMarket === "EEA_UK")!;
+    expect(isQuotedTier("UAE", uae.minMonthlyVolumeUSDCents)).toBe(true);
+    expect(isQuotedTier("EEA_UK", eeaUk.minMonthlyVolumeUSDCents)).toBe(true);
   });
 });
 

@@ -91,10 +91,11 @@ export function resolveFeeModel(
   payCurrency: Currency,
   overrides: ActiveOverrides = [],
 ): FeeModel | undefined {
+  const rateTier = selectTier(buyerMarket, 0);
   const rateTarget: OverrideTarget = {
     kind: "rate",
     buyerMarket,
-    minMonthlyVolumeUSDCents: selectTier(buyerMarket, 0).minMonthlyVolumeUSDCents,
+    minMonthlyVolumeUSDCents: rateTier.minMonthlyVolumeUSDCents,
   };
   const fixedFeeTarget: OverrideTarget = { kind: "fixedFee", currency: payCurrency };
   const fxSpreadTarget: OverrideTarget = { kind: "fxSpread" };
@@ -125,9 +126,19 @@ export function resolveFeeModel(
   // understating (an "unvalidated" badge on a figure someone just
   // corrected) or overstating (a stale "observed" badge) what's actually
   // known now.
+  //
+  // Exception: a fixed-fee-only override (no rate override, no ledger
+  // rate) leaves the rate half of the commercial fee resolved from the
+  // static schedule in engine.ts. If that static tier's rate is itself
+  // "unvalidated" (UAE, EEA_UK), claiming "manual" here would suppress
+  // the unvalidated marker on a rate nobody actually corrected.
+  const rateStillStaticUnvalidated =
+    !rateOverride && ledgerRate === undefined && rateTier.confidence === "unvalidated";
   const confidence: DisplayConfidence | undefined =
     rateOverride || fixedFeeOverride
-      ? "manual"
+      ? rateStillStaticUnvalidated
+        ? "unvalidated"
+        : "manual"
       : rate !== undefined && row
         ? row.confidence
         : undefined;

@@ -62,9 +62,9 @@ Append it, don't replace the existing table:
 
 ## 4. Check standing manual overrides
 
-If v0.6's rates-and-fees table (`docs/plan-v0.6.html`) is implemented:
-review every active row in `fee_overrides` on `/ledger` against what you
-just re-read from PayPal's pages. An override that now matches the
+Review every active row in `fee_overrides` on `/ledger`'s rates-and-fees
+table (`docs/plan-v0.6.html`) against what you just re-read from
+PayPal's pages. An override that now matches the
 published figure again should be cleared, not left standing — a
 stale-but-matching override still shows as `"manual"` confidence and
 masks the real source. An override that still diverges (a genuine,

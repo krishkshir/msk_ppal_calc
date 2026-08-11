@@ -34,6 +34,30 @@ describe("buildRateRows — coverage guard", () => {
     const inapplicable = rows.filter((r) => !r.applicable);
     expect(inapplicable.length).toBe(3);
     expect(inapplicable.every((r) => r.target.kind === "rate" && r.target.buyerMarket === "OTHER")).toBe(true);
+    expect(inapplicable.every((r) => r.target.kind === "rate" && r.target.minMonthlyVolumeUSDCents > 0)).toBe(true);
+  });
+
+  it("marks the $0-$3,000 OTHER tier and the UAE/EEA_UK tiers as applicable", () => {
+    const rows = buildRateRows(null, []);
+    const applicable = rows.filter(
+      (r) => r.target.kind === "rate" && r.target.minMonthlyVolumeUSDCents === 0,
+    );
+    expect(applicable.length).toBe(3); // OTHER:0, UAE:0, EEA_UK:0
+    expect(applicable.every((r) => r.applicable)).toBe(true);
+  });
+
+  it("commercial-rate formValue round-trips every SCHEDULE rate exactly, with no IEEE-754 noise", () => {
+    const rows = buildRateRows(null, []);
+    for (const entry of SCHEDULE) {
+      const row = rows.find(
+        (r) =>
+          r.target.kind === "rate" &&
+          r.target.buyerMarket === entry.buyerMarket &&
+          r.target.minMonthlyVolumeUSDCents === entry.minMonthlyVolumeUSDCents,
+      )!;
+      expect(Number(row.formValue) / 100).toBeCloseTo(entry.rate, 10);
+      expect(row.formValue).not.toMatch(/\.\d{5,}/);
+    }
   });
 });
 

@@ -104,22 +104,6 @@ export async function getActiveOverridesWithSetter(): Promise<ActiveOverrides> {
   return newestNonClearedByTarget(data).map(mapHistoryRow);
 }
 
-/** Authenticated-only, full history for one target — includes set_by_email. */
-export async function listOverrideHistory(targetKey: string): Promise<Override[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("fee_overrides")
-    .select("target_key, value, cleared, effective_from, note, set_at, set_by_email")
-    .eq("target_key", targetKey)
-    .order("set_at", { ascending: false })
-    .returns<FeeOverrideHistoryRow[]>();
-
-  if (error || !data) {
-    return [];
-  }
-  return data.map(mapHistoryRow);
-}
-
 export interface SetOverrideInput {
   targetKey: string;
   value: number;

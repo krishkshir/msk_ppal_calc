@@ -163,3 +163,13 @@ export function selectTier(
   }
   return match;
 }
+
+/**
+ * The tier a rate override can actually reach. model.ts's
+ * resolveFeeModel hardcodes monthlyVolumeUSDCents to 0 (CLAUDE.md:
+ * merchant-tier eligibility is resolved), so an override on any other
+ * tier would be stored and displayed but never applied by settle()/quote().
+ */
+export function isQuotedTier(buyerMarket: BuyerMarket, minMonthlyVolumeUSDCents: number): boolean {
+  return selectTier(buyerMarket, 0).minMonthlyVolumeUSDCents === minMonthlyVolumeUSDCents;
+}

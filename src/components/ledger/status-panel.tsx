@@ -1,6 +1,6 @@
 import { formatMoney } from "@/lib/format";
 import type { LedgerStatus } from "@/lib/fees/ledger-status";
-import { findOverride, type ActiveOverrides, type OverrideTarget } from "@/lib/fees/overrides";
+import { findOverride, targetKey, type ActiveOverrides, type Override, type OverrideTarget } from "@/lib/fees/overrides";
 import { acceptProposalAction, clearOverrideAction } from "@/app/ledger/actions";
 
 interface StatusPanelProps {
@@ -28,22 +28,34 @@ function MaskingWarning({ target, value }: { target: OverrideTarget; value: stri
         stays in effect until cleared.
       </p>
       <form action={clearOverrideAction} className="mt-1">
-        <input
-          type="hidden"
-          name="targetKey"
-          value={
-            target.kind === "rate"
-              ? `rate:${target.buyerMarket}:${target.minMonthlyVolumeUSDCents}`
-              : target.kind === "fixedFee"
-                ? `fixedFee:${target.currency}`
-                : "fxSpread"
-          }
-        />
+        <input type="hidden" name="targetKey" value={targetKey(target)} />
         <button type="submit" className="text-xs text-oxide underline">
           Clear override
         </button>
       </form>
     </div>
+  );
+}
+
+function CommercialMaskingWarnings({
+  rateOverride,
+  usdFixedFeeOverride,
+}: {
+  rateOverride: Override | undefined;
+  usdFixedFeeOverride: Override | undefined;
+}) {
+  return (
+    <>
+      {rateOverride ? (
+        <MaskingWarning
+          target={{ kind: "rate", buyerMarket: "OTHER", minMonthlyVolumeUSDCents: 0 }}
+          value={`${(rateOverride.value * 100).toFixed(3)}%`}
+        />
+      ) : null}
+      {usdFixedFeeOverride ? (
+        <MaskingWarning target={{ kind: "fixedFee", currency: "USD" }} value={formatMoney(usdFixedFeeOverride.value, "USD")} />
+      ) : null}
+    </>
   );
 }
 
@@ -83,17 +95,7 @@ export function StatusPanel({ status, overrides, showDiagnostics }: StatusPanelP
               still not uniquely determined, and that&apos;s expected with this little data.
             </p>
           ) : null}
-          {rateOverride ? (
-            <MaskingWarning
-              target={{ kind: "rate", buyerMarket: "OTHER", minMonthlyVolumeUSDCents: 0 }}
-              value={`${(rateOverride.value * 100).toFixed(3)}%`}
-            />
-          ) : usdFixedFeeOverride ? (
-            <MaskingWarning
-              target={{ kind: "fixedFee", currency: "USD" }}
-              value={formatMoney(usdFixedFeeOverride.value, "USD")}
-            />
-          ) : null}
+          <CommercialMaskingWarnings rateOverride={rateOverride} usdFixedFeeOverride={usdFixedFeeOverride} />
         </div>
       ) : commercial.kind === "propose" ? (
         <div className="mt-2">
@@ -113,17 +115,7 @@ export function StatusPanel({ status, overrides, showDiagnostics }: StatusPanelP
               Accept this model
             </button>
           </form>
-          {rateOverride ? (
-            <MaskingWarning
-              target={{ kind: "rate", buyerMarket: "OTHER", minMonthlyVolumeUSDCents: 0 }}
-              value={`${(rateOverride.value * 100).toFixed(3)}%`}
-            />
-          ) : usdFixedFeeOverride ? (
-            <MaskingWarning
-              target={{ kind: "fixedFee", currency: "USD" }}
-              value={formatMoney(usdFixedFeeOverride.value, "USD")}
-            />
-          ) : null}
+          <CommercialMaskingWarnings rateOverride={rateOverride} usdFixedFeeOverride={usdFixedFeeOverride} />
         </div>
       ) : (
         <div className="mt-2">
@@ -143,18 +135,29 @@ export function StatusPanel({ status, overrides, showDiagnostics }: StatusPanelP
         <div className="mt-5 border-t border-rule pt-4">
           <p className={labelClass}>Per-currency fixed fees</p>
           <ul className="mt-2 space-y-1 text-sm text-ink">
-            {status.currencyFees.map(({ payCurrency, verdict }) => (
-              <li key={payCurrency}>
-                {payCurrency}:{" "}
-                {verdict.kind === "confirmed"
-                  ? "confirmed"
-                  : verdict.kind === "propose"
-                    ? `propose ${formatMoney(verdict.proposedFixedFeeMinorUnits, payCurrency)}`
-                    : verdict.kind === "contradiction"
-                      ? "contradicts itself"
-                      : "no data"}
-              </li>
-            ))}
+            {status.currencyFees.map(({ payCurrency, verdict }) => {
+              const currencyFeeOverride = findOverride(overrides, { kind: "fixedFee", currency: payCurrency });
+              return (
+                <li key={payCurrency}>
+                  <div>
+                    {payCurrency}:{" "}
+                    {verdict.kind === "confirmed"
+                      ? "confirmed"
+                      : verdict.kind === "propose"
+                        ? `propose ${formatMoney(verdict.proposedFixedFeeMinorUnits, payCurrency)}`
+                        : verdict.kind === "contradiction"
+                          ? "contradicts itself"
+                          : "no data"}
+                  </div>
+                  {currencyFeeOverride && (verdict.kind === "confirmed" || verdict.kind === "propose") ? (
+                    <MaskingWarning
+                      target={{ kind: "fixedFee", currency: payCurrency }}
+                      value={formatMoney(currencyFeeOverride.value, payCurrency)}
+                    />
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         </div>
       ) : null}

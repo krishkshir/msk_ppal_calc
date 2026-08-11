@@ -150,7 +150,7 @@ function RatesSection({ title, rows }: { title: string; rows: RateRow[] }) {
               </td>
               <td className="py-2 font-mono text-xs">{row.effectiveDate}</td>
               <td className="py-2">
-                <OverrideControl row={row} />
+                {row.applicable ? <OverrideControl row={row} /> : null}
               </td>
             </tr>
           ))}

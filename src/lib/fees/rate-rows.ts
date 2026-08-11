@@ -2,7 +2,14 @@ import { formatMoney } from "@/lib/format";
 import { CURRENCIES, currencySpec } from "./currencies";
 import { ledgerRateAppliesToMarket, type ActiveFeeModelRow } from "./model";
 import { findOverride, targetKey, type ActiveOverrides, type OverrideTarget } from "./overrides";
-import { FX_SPREAD_RATE, FX_SPREAD_SOURCE_ID, SCHEDULE, SCHEDULE_EFFECTIVE_FROM, type ScheduleEntry } from "./schedule";
+import {
+  FX_SPREAD_RATE,
+  FX_SPREAD_SOURCE_ID,
+  isQuotedTier,
+  SCHEDULE,
+  SCHEDULE_EFFECTIVE_FROM,
+  type ScheduleEntry,
+} from "./schedule";
 import { feeSource, type FeeSource } from "./sources";
 
 /** One row of the rates-and-fees table on /ledger (src/components/ledger/rates-table.tsx). */
@@ -36,7 +43,7 @@ function formatRate(rate: number): string {
 }
 
 function percentFormValue(rate: number): string {
-  return String(rate * 100);
+  return String(Number((rate * 100).toFixed(4)));
 }
 
 function moneyFormValue(minorUnits: number, currency: (typeof CURRENCIES)[number]["code"]): string {
@@ -86,7 +93,7 @@ function commercialRateRows(activeModel: ActiveFeeModelRow | null, overrides: Ac
       buyerMarket: entry.buyerMarket,
       minMonthlyVolumeUSDCents: entry.minMonthlyVolumeUSDCents,
     };
-    const applicable = !(entry.buyerMarket === "OTHER" && entry.minMonthlyVolumeUSDCents > 0);
+    const applicable = isQuotedTier(entry.buyerMarket, entry.minMonthlyVolumeUSDCents);
     const baseline = commercialRateBaseline(entry, activeModel);
     const override = findOverride(overrides, target);
 
@@ -227,7 +234,12 @@ function fxSpreadRow(activeModel: ActiveFeeModelRow | null, overrides: ActiveOve
  * DB-agnostic so it's testable without Supabase; mirrors exactly the
  * precedence src/lib/fees/model.ts's resolveFeeModel applies at
  * calculation time, so the table never shows a different figure than
- * settle()/quote() would actually use.
+ * settle()/quote() would actually use — for every row where
+ * `applicable` is true. The three higher OTHER-market volume tiers
+ * (`applicable: false`, isQuotedTier in schedule.ts) are still listed
+ * for visibility but resolveFeeModel never looks them up (it's pinned to
+ * selectTier(buyerMarket, 0)) and, as of this fix, can no longer be
+ * overridden either.
  */
 export function buildRateRows(activeModel: ActiveFeeModelRow | null, overrides: ActiveOverrides): RateRow[] {
   return [
