@@ -49,6 +49,63 @@ the substantive changes.
     requesting another magic link can't fix that.
   - `CLAUDE.md` — the "promote to admin in the SQL editor" step is
     retired; role now comes from `allowed_accounts` automatically.
+- Fixed a follow-up bug in the allow-list fix above, found by a code
+  review run against it before it merged: `handle_new_user()` only fires
+  on `INSERT INTO auth.users` — once per account, ever — so `profiles`
+  (which it wrote `role` into) was a one-time bootstrap seed, not a live
+  allow-list. `delete from allowed_accounts` did **not** revoke an
+  existing account's access (its `profiles` row, and therefore
+  `is_ledger_member()`, survived untouched), and `update allowed_accounts
+  set role=...` never reached an already-registered account — both
+  contradicting this same PR's own `CLAUDE.md` wording ("adding or
+  removing a person is insert/delete on allowed_accounts"). A sync
+  trigger (write-time invalidation on `allowed_accounts`) was designed and
+  rejected: a first draft's bare `UPDATE` instead of an `UPSERT` silently
+  no-ops once a revoke has deleted the `profiles` row, permanently locking
+  out anyone re-added afterward — the identical bug shape, one level down.
+  - `supabase/migrations/20260811120000_derive_ledger_access.sql` (new) —
+    drops `public.profiles` entirely (verified zero FK dependents and
+    exactly one application reader) and derives membership **live** on
+    every call instead: `my_ledger_role()`, a new `SECURITY DEFINER` RPC,
+    joins `allowed_accounts` to `auth.users` fresh each time;
+    `is_ledger_member()`/`is_ledger_admin()` become thin wrappers around
+    it, so the `transactions`/`fee_models` policies referencing them by
+    name are unaffected. `handle_new_user()` simplifies to purely the
+    signup gate — it no longer writes anything, since there's nothing left
+    to materialize. A deploy-time guard fails loudly (rather than silently
+    denying everyone) if `postgres` ever loses read access to
+    `auth.users`. With no cache, there's no cache-invalidation bug left to
+    have — the design also closes a risk the original plan only
+    *accepted*: since authorization now keys off live `auth.users.email`
+    rather than a stable `profiles.id`, an allow-listed user changing
+    their own auth email to an unlisted address self-revokes immediately.
+    Verified live, in rollback-safe transactions, before and after
+    applying for real: deleting an allow-list row now denies the matching
+    session's very next request with no re-login; re-adding then
+    role-updating an account takes effect immediately, with no permanent
+    lockout.
+  - `src/lib/auth/profile.ts` — `resolveUser()` moves off `profiles`
+    entirely, calling the `my_ledger_role()` RPC instead (fixing a second
+    finding: it previously read `profiles` through ordinary RLS, coupling
+    the app's authorization check to `profiles`' own SELECT policy — the
+    exact fragility the SQL-side helpers already existed to avoid — and a
+    query failure there was silently indistinguishable from being signed
+    out; the RPC failure path is now logged). New `hasSession()` export (a
+    `getClaims()`-only check) lets `/login` show a sign-out affordance to
+    a signed-in-but-unlisted visitor who lands there directly, not only
+    via `requireUser`'s `?error=no_access` redirect. `requireAdmin`'s
+    non-admin redirect now carries `?error=not_admin`, surfaced as a
+    banner on `/ledger` (`src/app/ledger/page.tsx`) instead of a silent
+    bounce indistinguishable from the admin-only action having no effect.
+  - `README.md` — corrected two stale claims ("new accounts default to
+    the `user` role"; a manual Supabase-dashboard promotion step) left
+    over from before the allow-list existed, one of them pointing at
+    `CLAUDE.md` prose the original allow-list PR had already deleted.
+  - `docs/plan-ledger-access-lockdown.html` — corrected the "protects the
+    email quota" claim, which only holds for an address that has never
+    signed up: a removed account's `auth.users` row is deliberately left
+    in place, so it can still request magic links (and consume quota)
+    even though it can no longer read or write the ledger.
 - Implemented v0.5: a gated `/ledger` where Ms. K records real PayPal
   transactions herself, and the app re-derives the commercial rate,
   per-currency fixed fees, and the FX spread from them — proposing a

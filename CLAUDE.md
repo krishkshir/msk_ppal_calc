@@ -335,17 +335,25 @@ project (`supabase link` needs an interactive `supabase login`), so
 `/ledger` is locked to a fixed allow-list, `public.allowed_accounts`
 (`supabase/migrations/20260811090000_allowed_accounts.sql`) —
 currently `shrikantkshirsagar29@gmail.com` (admin) and
-`karendlima3@gmail.com` / `krish.kshir@gmail.com` (user). `role` is no
-longer a manual promotion step: `handle_new_user()` looks the signing-in
-email up in `allowed_accounts` and refuses (aborting the signup, no
-account created, no email sent) if it's absent, so adding or removing a
-person is `insert`/`delete` on `allowed_accounts` — done before the
-person's first sign-in attempt, since the trigger blocks every path into
-`auth.users`, including the Supabase Dashboard's own "Add/Invite user".
-See `docs/plan-ledger-access-lockdown.html` for the full design,
-including why the allow-list itself is never referenced from an RLS
-policy (a zero-policy table referenced from another table's policy
-subquery evaluates to "deny everyone", silently).
+`karendlima3@gmail.com` / `krish.kshir@gmail.com` (user). `role` is
+derived **live** from `allowed_accounts` on every request, by
+`my_ledger_role()` (`supabase/migrations/20260811120000_derive_ledger_access.sql`)
+— not cached anywhere, not even a `profiles` table (that table was
+dropped by this migration; a code review on the first version of this fix
+found it was written once at signup and never invalidated, so removing or
+promoting an existing account silently didn't work). Adding or removing a
+person is `insert`/`delete` on `allowed_accounts` and takes effect
+immediately, for someone who has already signed in as much as for a
+first-time signup. `handle_new_user()` still separately refuses signup
+(aborting the `auth.users` insert, no account created, no email sent) for
+anyone not on the list — including every path into `auth.users`, so the
+Supabase Dashboard's own "Add/Invite user" fails until the person is
+added to `allowed_accounts` first. See
+`docs/plan-ledger-access-lockdown.html` for the full design, including why
+the allow-list itself is never referenced from an RLS policy directly (a
+zero-policy table referenced from another table's policy subquery
+evaluates to "deny everyone", silently) — it's read only inside
+`SECURITY DEFINER` helpers.
 
 ## Non-goals
 
