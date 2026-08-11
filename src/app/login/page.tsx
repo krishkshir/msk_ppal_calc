@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signOut } from "@/lib/auth/actions";
@@ -31,7 +32,15 @@ export default async function LoginPage(props: PageProps<"/login">) {
 
   return (
     <main className="mx-auto max-w-sm px-6 py-16">
-      <p className="font-mono text-xs tracking-[0.12em] text-caption uppercase">msk_ppal_calc</p>
+      {/* Mirrors src/app/ledger/page.tsx's "← msk_ppal_calc" link — /login is reached from
+          the public homepage's "Ledger →" link (src/components/calculator.tsx), so it
+          needs a way back too, not just the ledger page beyond it. */}
+      <Link
+        href="/"
+        className="font-mono text-xs tracking-[0.12em] text-teal uppercase underline underline-offset-4 hover:text-teal/80"
+      >
+        ← msk_ppal_calc
+      </Link>
       <h1 className="mt-2 font-display text-2xl text-ink">Sign in to the ledger</h1>
 
       {rateLimited ? (
