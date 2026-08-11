@@ -355,6 +355,33 @@ zero-policy table referenced from another table's policy subquery
 evaluates to "deny everyone", silently) — it's read only inside
 `SECURITY DEFINER` helpers.
 
+**Magic-link emails silently redirect to `http://localhost:3000` from any
+deployed environment (preview or production) unless the Supabase
+Dashboard's Auth → URL Configuration allow-list is kept in sync with every
+domain the app is reachable at.** `src/app/login/actions.ts`'s
+`requestMagicLink` computes `emailRedirectTo` correctly from the request's
+`origin` header (Next.js Server Actions already enforce their own
+Origin-header CSRF check to run at all, so this is reliable) — but
+`signInWithOtp`'s `redirectTo` is validated against that allow-list
+server-side by GoTrue, and a value that doesn't match is **silently
+replaced with the Site URL**, not rejected with an error. The generated
+`/auth/v1/verify` link's `redirect_to` param is the tell: a bare origin
+with no `/auth/confirm` path (rather than the app's actual constructed
+URL) means the allow-list rejected it. This isn't version-controlled
+(`supabase/config.toml` doesn't exist; the CLI isn't linked — same
+un-tracked-dashboard-settings situation as everywhere else in this
+section), so it's a one-time manual step per environment domain, in
+**Authentication → URL Configuration** on the `supabase-beige-harbor`
+project: add `http://localhost:3000/**` (local dev),
+`https://msk-ppal-calc.vercel.app/**` (production), and
+`https://msk-ppal-calc-*-shri-kant.vercel.app/**` (every preview
+deployment — Vercel's actual pattern is
+`msk-ppal-calc-<hash>-shri-kant.vercel.app`, confirmed via `vercel ls`).
+Site URL itself is worth changing from `http://localhost:3000` to the
+production URL too, since it's also the fallback for every other auth
+email (password reset, etc.), not just magic-link redirects that miss the
+allow-list.
+
 ## Non-goals
 
 Not a payment processor, not bookkeeping/accounting software, not tax or

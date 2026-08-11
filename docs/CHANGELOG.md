@@ -7,6 +7,21 @@ the substantive changes.
 
 ## Unreleased
 
+- Diagnosed and documented (not a code bug): magic-link emails from a
+  deployed environment (preview or production) were redirecting to
+  `http://localhost:3000` instead of the actual deployment. The generated
+  `/auth/v1/verify` link's `redirect_to` was a bare origin with no
+  `/auth/confirm` path — the tell that Supabase's GoTrue rejected the
+  app's correctly-computed `emailRedirectTo` (not on the project's Auth →
+  URL Configuration → Redirect URLs allow-list) and silently substituted
+  the Site URL instead of erroring. Not version-controlled, so this is a
+  one-time manual Dashboard step per environment domain, now documented in
+  `CLAUDE.md` § "Supabase" with the exact values for this project
+  (`http://localhost:3000/**`, `https://msk-ppal-calc.vercel.app/**`,
+  `https://msk-ppal-calc-*-shri-kant.vercel.app/**` — the last confirmed
+  against `vercel ls`'s actual preview URL pattern). `src/app/login/actions.ts`
+  gained a comment pointing future debugging at this the moment the same
+  symptom recurs.
 - Fixed a security issue in v0.5's ledger: `/ledger` was gated only on "is
   this a valid authenticated session," not identity. `signInWithOtp`
   (`src/app/login/actions.ts`) never set `shouldCreateUser: false`, so any
